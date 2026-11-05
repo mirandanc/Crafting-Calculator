@@ -1,0 +1,79 @@
+:root {
+  --color-gold: #ffd100;
+  --color-gold-dim: #c9a227;
+  --color-text: #f1e6c8;
+  --color-ink: #3b2412;
+  --color-ink-soft: #6b4a2b;
+  --color-panel: rgba(8, 8, 22, 0.92);
+  --color-frame: #8c8c8c;
+  --color-frame-light: #c8c8c8;
+  --color-danger: #ff4d4d;
+  --color-coin-gold: #ffd700;
+  --color-coin-silver: #c7c7cf;
+  --color-coin-copper: #d0864a;
+  --font-display: 'Marcellus', Georgia, 'Times New Roman', serif;
+  color-scheme: dark;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  cursor: url('@/assets/cursor/point.png') 2 2, auto;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+  font-family: var(--font-display);
+  color: var(--color-text);
+  background:
+    radial-gradient(ellipse at top, rgba(90, 70, 40, 0.35), transparent 60%),
+    linear-gradient(180deg, #1b1712 0%, #0d0b08 100%);
+  background-attachment: fixed;
+}
+
+button {
+  font: inherit;
+  cursor: inherit;
+  color: var(--color-gold);
+  background: linear-gradient(180deg, #8f1010 0%, #5a0606 100%);
+  border: 2px solid #2b0000;
+  border-radius: 4px;
+  padding: 6px 14px;
+  box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.35), 0 2px 4px rgba(0, 0, 0, 0.6);
+  text-shadow: 1px 1px 0 #000;
+}
+
+button:hover {
+  filter: brightness(1.2);
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-gold);
+  outline-offset: 2px;
+}
+
+input {
+  font: inherit;
+  color: var(--color-text);
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--color-frame);
+  border-radius: 3px;
+  padding: 4px 8px;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
