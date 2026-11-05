@@ -6,6 +6,8 @@
   "build": {
     "command": "npm run build"
   },
+  // Required by `wrangler preview`, which Cloudflare runs for pull-request builds.
+  "previews": {},
   // Static site only: Cloudflare serves the Vite build output, no Worker script.
   "assets": {
     "directory": "./dist"
