@@ -1,0 +1,44 @@
+.money {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 12px;
+  min-inline-size: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+
+.caption {
+  font-family: var(--font-caps);
+  letter-spacing: 0.05em;
+}
+
+.coin {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  font-size: 20px;
+}
+
+.input {
+  padding: 2px 2px 3px;
+  font-size: 21px;
+  text-align: right;
+  color: var(--color-ink);
+}
+
+.gold {
+  width: 48px;
+}
+
+.silver,
+.copper {
+  width: 40px;
+}
+
+@media (max-width: 520px) {
+  .money {
+    gap: 8px;
+  }
+}

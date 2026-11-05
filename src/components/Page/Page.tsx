@@ -1,0 +1,52 @@
+import type { ReactNode } from 'react';
+import styles from '@/components/Page/Page.module.css';
+
+type PageSide = 'left' | 'right';
+
+type PageProps = {
+  side: PageSide;
+  label: string;
+  heading: string;
+  children: ReactNode;
+};
+
+type FlourishProps = {
+  className: string;
+};
+
+function Flourish({ className }: FlourishProps) {
+  return (
+    <svg
+      className={`${styles.flourish} ${className}`}
+      aria-hidden="true"
+      width="70"
+      height="70"
+      viewBox="0 0 70 70"
+      fill="none"
+      stroke="currentColor"
+      strokeWidth="1.2"
+      strokeLinecap="round"
+    >
+      <path d="M6 64V22C6 12 12 6 22 6h42" />
+      <path d="M12 64V26c0-8 6-14 14-14h38" opacity=".5" />
+      <path d="M22 22c8-10 22-6 18 4-3 7-13 5-11-1 1.5-4 7-3 6 1" />
+      <circle cx="6" cy="64" r="2" fill="currentColor" />
+      <circle cx="64" cy="6" r="2" fill="currentColor" />
+    </svg>
+  );
+}
+
+export function Page({ side, label, heading, children }: PageProps) {
+  return (
+    <section className={`${styles.page} ${styles[side]}`} aria-label={label}>
+      <Flourish className={styles.cornerTop} />
+      <Flourish className={styles.cornerBottom} />
+      <div className={styles.heading}>
+        <span className={styles.ruleIn} aria-hidden="true" />
+        <h2 className={styles.headingText}>{heading}</h2>
+        <span className={styles.ruleOut} aria-hidden="true" />
+      </div>
+      {children}
+    </section>
+  );
+}

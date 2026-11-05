@@ -1,0 +1,10 @@
+/* Sized like the reference's .coin dots, relative to the surrounding text. */
+.coin {
+  display: inline-block;
+  width: 0.72em;
+  height: 0.72em;
+  margin-left: 0.16em;
+  vertical-align: -0.04em;
+  border-radius: 50%;
+  object-fit: contain;
+}

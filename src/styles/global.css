@@ -1,0 +1,118 @@
+:root {
+  /* Night and ink */
+  --color-night: #140d08;
+  --color-ink: #2b1a0e;
+  --color-ink-soft: #5e4026;
+  --color-sepia: #8a5a2b;
+  --color-focus: #c98a1b;
+
+  /* Rubric red (headings, stamp, remove) */
+  --color-rubric: #7d1d10;
+  --color-rubric-dark: #4f0f07;
+  --color-rubric-hover: #5e140a;
+  --color-rubric-shadow: #3d0a04;
+  --color-paper-cream: #f6e7c4;
+
+  /* Parchment pages */
+  --color-parchment-left: #ead6a6;
+  --color-parchment-right: #e8d3a1;
+
+  /* Leather cover */
+  --color-leather-light: #6a2a1c;
+  --color-leather-dark: #3e140d;
+  --color-leather-edge: #1f0905;
+  --color-leather-rim: #7a3423;
+
+  /* Gilded title */
+  --color-gilt: #f2bd52;
+  --color-gilt-high: #fff2b8;
+  --color-gilt-mid: #f2b640;
+  --color-gilt-low: #a5620e;
+  --color-gilt-shadow: #3a1f03;
+
+  /* Brass button */
+  --color-brass-high: #f9df96;
+  --color-brass-mid: #ba8930;
+  --color-brass-low: #6a470f;
+  --color-brass-edge: #3a2408;
+  --color-brass-ink: #2a1806;
+
+  /* Ribbon and embers */
+  --color-ribbon-dark: #6e1209;
+  --color-ribbon: #a8241a;
+  --color-ribbon-edge: #7a160c;
+  --color-ember: #ffbf5e;
+
+  --font-body: 'IM Fell English', Georgia, 'Times New Roman', serif;
+  --font-caps: 'IM Fell English SC', Georgia, serif;
+  --font-display: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
+  --font-numeral: 'Cinzel', Georgia, serif;
+}
+
+*,
+*::before,
+*::after {
+  box-sizing: border-box;
+}
+
+html {
+  cursor: url('@/assets/cursor/point.png') 2 2, auto;
+}
+
+body {
+  margin: 0;
+  background: var(--color-night);
+}
+
+button {
+  font: inherit;
+  cursor: inherit;
+}
+
+input {
+  font: inherit;
+  color: inherit;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(94, 64, 38, 0.4);
+  border-radius: 0;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus {
+  border-bottom-color: var(--color-rubric);
+  box-shadow: 0 1px 0 var(--color-rubric);
+}
+
+input::placeholder {
+  color: rgba(94, 64, 38, 0.5);
+  font-style: italic;
+}
+
+input[type='number'] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+input[type='number']::-webkit-inner-spin-button,
+input[type='number']::-webkit-outer-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}

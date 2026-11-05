@@ -1,0 +1,117 @@
+.page {
+  position: relative;
+  min-height: 100vh;
+  overflow: hidden;
+  padding: 44px 24px 120px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 30px;
+  background: var(--color-night);
+  color: var(--color-ink);
+  font-family: var(--font-body);
+}
+
+.header {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1240px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.heading {
+  margin: 0;
+  min-width: 0;
+  font-family: var(--font-display);
+  font-weight: 900;
+  font-size: 50px;
+  line-height: 1.05;
+  letter-spacing: 0.01em;
+  color: var(--color-gilt);
+  background: linear-gradient(180deg, var(--color-gilt-high) 0%, var(--color-gilt-mid) 48%, var(--color-gilt-low) 100%);
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  filter: drop-shadow(0 2px 0 var(--color-gilt-shadow)) drop-shadow(0 0 18px rgba(255, 160, 50, 0.35));
+  text-wrap: balance;
+}
+
+/* Leather cover; two columns until a page would drop below 500px (about 1036px wide). */
+.book {
+  position: relative;
+  z-index: 1;
+  width: 100%;
+  max-width: 1240px;
+  padding: 18px;
+  border-radius: 16px;
+  background: radial-gradient(ellipse at 30% 20%, var(--color-leather-light), var(--color-leather-dark) 70%);
+  box-shadow:
+    0 50px 90px rgba(0, 0, 0, 0.75),
+    0 0 0 1px var(--color-leather-edge),
+    inset 0 0 0 2px var(--color-leather-rim),
+    inset 0 0 40px rgba(0, 0, 0, 0.5);
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(500px, 100%), 1fr));
+  gap: 0;
+  animation: unfold 1.2s cubic-bezier(0.2, 0.75, 0.2, 1) both;
+}
+
+.stitching {
+  position: absolute;
+  inset: 7px;
+  border: 2px dashed rgba(232, 182, 112, 0.32);
+  border-radius: 11px;
+  pointer-events: none;
+}
+
+.titleField {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.titleCaption {
+  font-family: var(--font-caps);
+  font-size: 16px;
+  letter-spacing: 0.08em;
+  color: var(--color-ink-soft);
+}
+
+.titleInput {
+  width: 100%;
+  padding: 4px 2px 6px;
+  font-size: 30px;
+  font-style: italic;
+  color: var(--color-ink);
+}
+
+@keyframes unfold {
+  from {
+    opacity: 0;
+    transform: perspective(1800px) rotateX(12deg) translateY(40px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .book {
+    animation: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .heading {
+    font-size: 34px;
+  }
+
+  .book {
+    padding: 14px;
+  }
+}

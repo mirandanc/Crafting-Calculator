@@ -1,0 +1,151 @@
+.ambience {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+/* Candle glow behind the book. */
+.glow {
+  position: absolute;
+  inset: -15%;
+  background: radial-gradient(ellipse 46% 42% at 50% 52%, rgba(255, 152, 64, 0.3), rgba(255, 118, 40, 0.1) 55%, rgba(0, 0, 0, 0) 78%);
+  animation: flicker 4.2s ease-in-out infinite;
+}
+
+.grain {
+  position: absolute;
+  inset: 0;
+  opacity: 0.22;
+  mix-blend-mode: overlay;
+}
+
+.vignette {
+  position: absolute;
+  inset: 0;
+  box-shadow: inset 0 0 260px 60px rgba(0, 0, 0, 0.85);
+}
+
+.embers {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+}
+
+.ember {
+  position: absolute;
+  bottom: -12px;
+  border-radius: 50%;
+  background: var(--color-ember);
+  box-shadow: 0 0 6px 2px rgba(255, 140, 40, 0.8), 0 0 16px 5px rgba(255, 90, 20, 0.3);
+  opacity: 0;
+  animation: rise-a 10s linear infinite;
+}
+
+.driftA {
+  animation-name: rise-a;
+}
+
+.driftB {
+  animation-name: rise-b;
+}
+
+.driftC {
+  animation-name: rise-c;
+}
+
+@keyframes flicker {
+  0%,
+  100% {
+    opacity: 0.9;
+    transform: scale(1);
+  }
+  11% {
+    opacity: 0.74;
+  }
+  19% {
+    opacity: 1;
+    transform: scale(1.025);
+  }
+  33% {
+    opacity: 0.82;
+  }
+  47% {
+    opacity: 0.96;
+    transform: scale(0.99);
+  }
+  61% {
+    opacity: 0.76;
+  }
+  76% {
+    opacity: 1;
+    transform: scale(1.01);
+  }
+  88% {
+    opacity: 0.85;
+  }
+}
+
+@keyframes rise-a {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  8% {
+    opacity: 1;
+  }
+  45% {
+    transform: translate(34px, -45vh) scale(0.85);
+  }
+  100% {
+    transform: translate(-12px, -100vh) scale(0.25);
+    opacity: 0;
+  }
+}
+
+@keyframes rise-b {
+  0% {
+    transform: translate(0, 0) scale(1);
+    opacity: 0;
+  }
+  10% {
+    opacity: 0.9;
+  }
+  50% {
+    transform: translate(-40px, -50vh) scale(0.8);
+  }
+  100% {
+    transform: translate(18px, -100vh) scale(0.2);
+    opacity: 0;
+  }
+}
+
+@keyframes rise-c {
+  0% {
+    transform: translate(0, 0) scale(1.1);
+    opacity: 0;
+  }
+  6% {
+    opacity: 1;
+  }
+  35% {
+    transform: translate(14px, -30vh) scale(0.9);
+  }
+  70% {
+    transform: translate(-22px, -70vh) scale(0.5);
+    opacity: 0.6;
+  }
+  100% {
+    transform: translate(6px, -100vh) scale(0.2);
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .glow {
+    animation: none;
+  }
+
+  .embers {
+    display: none;
+  }
+}

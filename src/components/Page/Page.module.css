@@ -1,0 +1,93 @@
+.page {
+  position: relative;
+  min-width: 0;
+  min-height: 640px;
+  padding: 46px 52px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 22px;
+}
+
+.left {
+  border-radius: 6px 2px 2px 6px;
+  background:
+    radial-gradient(ellipse at 18% 12%, rgba(255, 250, 228, 0.65), rgba(255, 250, 228, 0) 55%),
+    radial-gradient(ellipse at 85% 92%, rgba(150, 95, 40, 0.28), rgba(150, 95, 40, 0) 60%),
+    var(--color-parchment-left);
+  box-shadow: inset -46px 0 50px -34px rgba(90, 50, 10, 0.6), inset 0 0 70px rgba(120, 70, 20, 0.35);
+}
+
+.right {
+  border-radius: 2px 6px 6px 2px;
+  background:
+    radial-gradient(ellipse at 82% 12%, rgba(255, 250, 228, 0.6), rgba(255, 250, 228, 0) 55%),
+    radial-gradient(ellipse at 15% 90%, rgba(150, 95, 40, 0.26), rgba(150, 95, 40, 0) 60%),
+    var(--color-parchment-right);
+  box-shadow: inset 46px 0 50px -34px rgba(90, 50, 10, 0.6), inset 0 0 70px rgba(120, 70, 20, 0.35);
+}
+
+.flourish {
+  position: absolute;
+  color: var(--color-sepia);
+  opacity: 0.75;
+  pointer-events: none;
+}
+
+.left .cornerTop {
+  top: 12px;
+  left: 12px;
+}
+
+.left .cornerBottom {
+  bottom: 12px;
+  left: 12px;
+  transform: scaleY(-1);
+}
+
+.right .cornerTop {
+  top: 12px;
+  right: 12px;
+  transform: scaleX(-1);
+}
+
+.right .cornerBottom {
+  bottom: 12px;
+  right: 12px;
+  transform: scale(-1, -1);
+}
+
+.heading {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+}
+
+.ruleIn,
+.ruleOut {
+  flex: 1;
+  height: 1px;
+}
+
+.ruleIn {
+  background: linear-gradient(90deg, rgba(138, 90, 43, 0), var(--color-sepia));
+}
+
+.ruleOut {
+  background: linear-gradient(90deg, var(--color-sepia), rgba(138, 90, 43, 0));
+}
+
+.headingText {
+  margin: 0;
+  font-family: var(--font-caps);
+  font-weight: 400;
+  font-size: 30px;
+  letter-spacing: 0.08em;
+  color: var(--color-rubric);
+}
+
+@media (max-width: 520px) {
+  .page {
+    min-height: 0;
+    padding: 40px 22px 56px;
+  }
+}
