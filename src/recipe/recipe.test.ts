@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
+import { fromCopper, GOLD_CAP_COPPER } from '@/money/money';
 import {
   createDefaultRecipe,
   createEmptyCard,
   invoiceTotal,
   isCardFilled,
   lineTotal,
+  MAX_QUANTITY,
   parseCoin,
   parseQuantity,
   withoutCard,
@@ -69,6 +71,13 @@ describe('totals', () => {
   it('sums line totals', () => {
     const linen = card({ id: 'b', name: 'Linen Cloth', quantity: 1, price: { gold: 0, silver: 0, copper: 75 } });
     expect(invoiceTotal([card(), linen])).toBe(125);
+  });
+
+  it('clamps the invoice total at Number.MAX_SAFE_INTEGER', () => {
+    const cards = Array.from({ length: 10 }, (_, index) =>
+      card({ id: `card-${index}`, quantity: MAX_QUANTITY, price: fromCopper(GOLD_CAP_COPPER) }),
+    );
+    expect(invoiceTotal(cards)).toBe(Number.MAX_SAFE_INTEGER);
   });
 });
 

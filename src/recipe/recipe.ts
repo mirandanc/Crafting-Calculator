@@ -46,7 +46,8 @@ export function lineTotal(card: ItemCard): number {
 }
 
 export function invoiceTotal(cards: ItemCard[]): number {
-  return cards.reduce((sum, card) => sum + lineTotal(card), 0);
+  const total = cards.reduce((sum, card) => sum + lineTotal(card), 0);
+  return Math.min(total, Number.MAX_SAFE_INTEGER);
 }
 
 export function withoutCard(cards: ItemCard[], id: string): ItemCard[] {

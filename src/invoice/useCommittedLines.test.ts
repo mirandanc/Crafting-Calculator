@@ -94,4 +94,43 @@ describe('useCommittedLines', () => {
     expect(ids(result.current)).toEqual(['a']);
     expect(onAdded).toHaveBeenCalledTimes(1);
   });
+
+  it('restarts the shared delay for a pending card when another card is edited', () => {
+    const { result, rerender, onAdded } = setup([empty('a'), filled('b', 1)]);
+    rerender({ cards: [filled('a'), filled('b', 1)] });
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    rerender({ cards: [filled('a'), filled('b', 2)] });
+    act(() => {
+      vi.advanceTimersByTime(300);
+    });
+    expect(ids(result.current)).toEqual(['b']);
+    expect(onAdded).not.toHaveBeenCalled();
+    act(() => {
+      vi.advanceTimersByTime(500);
+    });
+    expect(ids(result.current).sort()).toEqual(['a', 'b']);
+    expect(onAdded).toHaveBeenCalledTimes(1);
+  });
+
+  it('commits two cards filled in the same window with a single announcement', () => {
+    const { result, rerender, onAdded } = setup([empty('a'), empty('b')]);
+    rerender({ cards: [filled('a'), filled('b')] });
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(ids(result.current).sort()).toEqual(['a', 'b']);
+    expect(onAdded).toHaveBeenCalledTimes(1);
+  });
+
+  it('cancels a pending commit on unmount', () => {
+    const { rerender, unmount, onAdded } = setup([empty('a')]);
+    rerender({ cards: [filled('a')] });
+    unmount();
+    act(() => {
+      vi.advanceTimersByTime(800);
+    });
+    expect(onAdded).not.toHaveBeenCalled();
+  });
 });

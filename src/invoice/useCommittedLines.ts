@@ -20,6 +20,7 @@ export function useCommittedLines(cards: ItemCard[], onAdded: () => void): ItemC
       setCommittedIds(pruned);
     }
 
+    // Single shared debounce: editing any card restarts the 800 ms delay for every pending card.
     const timer = setTimeout(() => {
       const { committed, added } = commitFilled(committedRef.current, cards);
       if (added.length === 0) return;
