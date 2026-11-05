@@ -45,6 +45,17 @@ describe('App', () => {
     expect(within(invoice).queryByRole('listitem')).toBeNull();
   });
 
+  it('shows the tally placeholders until a row is committed', async () => {
+    const { user, invoice } = renderApp();
+    expect(within(invoice).getByRole('heading', { name: 'Unnamed recipe' })).toBeInTheDocument();
+    expect(within(invoice).getByText('Nothing tallied yet.')).toBeInTheDocument();
+
+    await fillFirstCard(user, 'Copper Bar', '2', '25');
+    await waitForCommit();
+
+    expect(within(invoice).queryByText('Nothing tallied yet.')).toBeNull();
+  });
+
   it('adds a filled card to the invoice after the delay and plays the coin sound', async () => {
     const { user, invoice } = renderApp();
     await fillFirstCard(user, 'Copper Bar', '2', '25');
