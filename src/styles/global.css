@@ -1,18 +1,52 @@
 :root {
-  --color-gold: #ffd100;
-  --color-gold-dim: #c9a227;
-  --color-text: #f1e6c8;
-  --color-ink: #24140a;
-  --color-ink-soft: #4a3019;
-  --color-panel: rgba(8, 8, 22, 0.92);
-  --color-frame: #8c8c8c;
-  --color-frame-light: #c8c8c8;
-  --color-danger: #ff4d4d;
-  --color-coin-gold: #ffd700;
-  --color-coin-silver: #c7c7cf;
-  --color-coin-copper: #d0864a;
-  --font-display: 'Marcellus', Georgia, 'Times New Roman', serif;
-  color-scheme: dark;
+  /* Night and ink */
+  --color-night: #140d08;
+  --color-ink: #2b1a0e;
+  --color-ink-soft: #5e4026;
+  --color-sepia: #8a5a2b;
+  --color-focus: #c98a1b;
+
+  /* Rubric red (headings, stamp, remove) */
+  --color-rubric: #7d1d10;
+  --color-rubric-dark: #4f0f07;
+  --color-rubric-hover: #5e140a;
+  --color-rubric-shadow: #3d0a04;
+  --color-paper-cream: #f6e7c4;
+
+  /* Parchment pages */
+  --color-parchment-left: #ead6a6;
+  --color-parchment-right: #e8d3a1;
+
+  /* Leather cover */
+  --color-leather-light: #6a2a1c;
+  --color-leather-dark: #3e140d;
+  --color-leather-edge: #1f0905;
+  --color-leather-rim: #7a3423;
+
+  /* Gilded title */
+  --color-gilt: #f2bd52;
+  --color-gilt-high: #fff2b8;
+  --color-gilt-mid: #f2b640;
+  --color-gilt-low: #a5620e;
+  --color-gilt-shadow: #3a1f03;
+
+  /* Brass button */
+  --color-brass-high: #f9df96;
+  --color-brass-mid: #ba8930;
+  --color-brass-low: #6a470f;
+  --color-brass-edge: #3a2408;
+  --color-brass-ink: #2a1806;
+
+  /* Ribbon and embers */
+  --color-ribbon-dark: #6e1209;
+  --color-ribbon: #a8241a;
+  --color-ribbon-edge: #7a160c;
+  --color-ember: #ffbf5e;
+
+  --font-body: 'IM Fell English', Georgia, 'Times New Roman', serif;
+  --font-caps: 'IM Fell English SC', Georgia, serif;
+  --font-display: 'Cinzel Decorative', 'Cinzel', Georgia, serif;
+  --font-numeral: 'Cinzel', Georgia, serif;
 }
 
 *,
@@ -27,44 +61,34 @@ html {
 
 body {
   margin: 0;
-  min-height: 100vh;
-  font-family: var(--font-display);
-  color: var(--color-text);
-  background:
-    radial-gradient(ellipse at top, rgba(90, 70, 40, 0.35), transparent 60%),
-    linear-gradient(180deg, #1b1712 0%, #0d0b08 100%);
-  background-attachment: fixed;
+  background: var(--color-night);
 }
 
 button {
   font: inherit;
   cursor: inherit;
-  color: var(--color-gold);
-  background: linear-gradient(180deg, #8f1010 0%, #5a0606 100%);
-  border: 2px solid #2b0000;
-  border-radius: 4px;
-  padding: 6px 14px;
-  box-shadow: inset 0 1px 0 rgba(255, 220, 150, 0.35), 0 2px 4px rgba(0, 0, 0, 0.6);
-  text-shadow: 1px 1px 0 #000;
-}
-
-button:hover {
-  filter: brightness(1.2);
-}
-
-button:focus-visible,
-input:focus-visible {
-  outline: 2px solid var(--color-gold);
-  outline-offset: 2px;
 }
 
 input {
   font: inherit;
-  color: var(--color-text);
-  background: rgba(0, 0, 0, 0.55);
-  border: 1px solid var(--color-frame);
-  border-radius: 3px;
-  padding: 4px 8px;
+  color: inherit;
+  margin: 0;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid rgba(94, 64, 38, 0.4);
+  border-radius: 0;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus {
+  border-bottom-color: var(--color-rubric);
+  box-shadow: 0 1px 0 var(--color-rubric);
+}
+
+input::placeholder {
+  color: rgba(94, 64, 38, 0.5);
+  font-style: italic;
 }
 
 input[type='number'] {
@@ -78,8 +102,17 @@ input[type='number']::-webkit-outer-spin-button {
   margin: 0;
 }
 
-@media (max-width: 480px) {
-  button {
-    min-height: 44px;
-  }
+button:focus-visible,
+input:focus-visible {
+  outline: 2px solid var(--color-focus);
+  outline-offset: 3px;
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
 }
