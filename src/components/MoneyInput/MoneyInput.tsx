@@ -7,7 +7,6 @@ import { parseCoin } from '@/recipe/recipe';
 
 type CoinField = {
   key: keyof Coins;
-  name: string;
   icon: string;
 };
 
@@ -19,9 +18,9 @@ type MoneyInputProps = {
 };
 
 const COIN_FIELDS: CoinField[] = [
-  { key: 'gold', name: 'gold', icon: goldIcon },
-  { key: 'silver', name: 'silver', icon: silverIcon },
-  { key: 'copper', name: 'copper', icon: copperIcon },
+  { key: 'gold', icon: goldIcon },
+  { key: 'silver', icon: silverIcon },
+  { key: 'copper', icon: copperIcon },
 ];
 
 export function MoneyInput({ label, value, onChange, onBlur }: MoneyInputProps) {
@@ -40,7 +39,7 @@ export function MoneyInput({ label, value, onChange, onBlur }: MoneyInputProps) 
             inputMode="numeric"
             min={0}
             placeholder="0"
-            aria-label={`${label} ${field.name}`}
+            aria-label={`${label} ${field.key}`}
             className={`${styles.input} ${styles[field.key]}`}
             value={value[field.key] === 0 ? '' : value[field.key]}
             onChange={(event) => onChange({ ...value, [field.key]: parseCoin(event.target.value) })}

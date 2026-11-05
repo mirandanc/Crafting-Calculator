@@ -65,7 +65,7 @@ export function CardList({ cards, onAdd, onChange, onNormalizePrice, onRemove, o
               if (event.key === 'Escape') closeConfirm();
             }}
           >
-            <span>Clear every item?</span>
+            <span>Clear the recipe and every item?</span>
             <button
               type="button"
               onClick={() => {

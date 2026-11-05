@@ -4,8 +4,8 @@ export type Coins = {
   copper: number;
 };
 
-export const COPPER_PER_SILVER = 100;
-export const COPPER_PER_GOLD = 10_000;
+const COPPER_PER_SILVER = 100;
+const COPPER_PER_GOLD = 10_000;
 export const GOLD_CAP_COPPER = 9_999_999 * COPPER_PER_GOLD + 99 * COPPER_PER_SILVER + 99;
 
 const wholeOrZero = (value: number): number => (Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0);
