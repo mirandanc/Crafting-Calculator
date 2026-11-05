@@ -19,6 +19,11 @@
   gap: 14px;
 }
 
+/* When the footer wraps on narrow pages, keep the second control right-aligned, clear of the corner flourish. */
+.actions > :last-child {
+  margin-left: auto;
+}
+
 .stamp {
   display: flex;
   align-items: center;

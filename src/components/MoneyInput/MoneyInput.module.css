@@ -36,3 +36,9 @@
 .copper {
   width: 40px;
 }
+
+@media (max-width: 520px) {
+  .money {
+    gap: 8px;
+  }
+}
