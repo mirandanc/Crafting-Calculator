@@ -1,0 +1,142 @@
+.invoice {
+  position: relative;
+  isolation: isolate;
+  min-height: 512px;
+  padding: 56px 84px 64px 40px;
+  color: var(--color-ink);
+}
+
+.invoice::before,
+.invoice::after {
+  content: '';
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  z-index: -1;
+  border-style: solid;
+  border-width: 64px 0;
+  border-image-slice: 64 0 fill;
+  border-image-repeat: stretch round;
+}
+
+.invoice::before {
+  left: 0;
+  right: 64px;
+  border-image-source: url('@/assets/stationery/stationerytest1.png');
+}
+
+.invoice::after {
+  right: 0;
+  width: 64px;
+  border-image-source: url('@/assets/stationery/stationerytest2.png');
+}
+
+.watermark {
+  position: absolute;
+  z-index: 0;
+  top: 50%;
+  left: calc(50% - 32px);
+  width: 60%;
+  transform: translate(-50%, -50%);
+  filter: grayscale(1) sepia(1);
+  opacity: 0.12;
+  pointer-events: none;
+}
+
+.content {
+  position: relative;
+  z-index: 1;
+}
+
+.title {
+  margin: 0 0 16px;
+  font-size: 1.5rem;
+  text-align: center;
+  border-bottom: 1px solid var(--color-ink-soft);
+  padding-bottom: 8px;
+}
+
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: grid;
+  gap: 6px;
+}
+
+.line {
+  display: grid;
+  grid-template-columns: 1fr auto auto;
+  gap: 12px;
+  align-items: baseline;
+  animation: ink-in 300ms ease-out;
+}
+
+.name {
+  overflow-wrap: anywhere;
+}
+
+.math,
+.amount {
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.math {
+  color: var(--color-ink-soft);
+}
+
+.total {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+  margin: 16px 0 0;
+  padding-top: 8px;
+  border-top: 2px solid var(--color-ink);
+  font-size: 1.3rem;
+}
+
+.totalAmount {
+  overflow-wrap: anywhere;
+  text-align: right;
+  color: #7a5300;
+  text-shadow: 0 1px 0 rgba(255, 230, 150, 0.6);
+}
+
+@keyframes ink-in {
+  from {
+    opacity: 0;
+    filter: blur(2px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    animation: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .invoice {
+    position: sticky;
+    top: 16px;
+  }
+}
+
+@media (max-width: 480px) {
+  .invoice {
+    padding: 48px 72px 56px 24px;
+  }
+
+  .line {
+    grid-template-columns: 1fr auto;
+  }
+
+  .math {
+    grid-column: 1;
+  }
+}
