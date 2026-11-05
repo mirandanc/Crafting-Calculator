@@ -1,124 +1,122 @@
-.invoice {
-  position: relative;
-  isolation: isolate;
-  min-height: 512px;
-  padding: 56px 84px 64px 40px;
-  font-size: 1.05rem;
-  color: var(--color-ink);
-  /* Marcellus ships one weight only; a thin same-colour stroke thickens it without faux bold. */
-  -webkit-text-stroke: 0.75px currentColor;
-}
-
-.invoice::before,
-.invoice::after {
-  content: '';
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  z-index: -1;
-  border-style: solid;
-  border-width: 64px 0;
-  border-image-slice: 64 0 fill;
-  /* The texture's vertical gradient shows seams when the middle band tiles, so it stretches instead. */
-  border-image-repeat: stretch;
-}
-
-.invoice::before {
-  left: 0;
-  right: 64px;
-  border-image-source: url('@/assets/stationery/stationerytest1.png');
-}
-
-.invoice::after {
-  right: 0;
-  width: 64px;
-  border-image-source: url('@/assets/stationery/stationerytest2.png');
-}
-
-.watermark {
-  position: absolute;
-  z-index: 0;
-  top: 50%;
-  left: calc(50% - 32px);
-  width: 60%;
-  transform: translate(-50%, -50%);
-  filter: grayscale(1) sepia(1);
-  opacity: 0.12;
-  pointer-events: none;
-}
-
-.content {
-  position: relative;
-  z-index: 1;
-}
-
 .title {
-  margin: 0 0 16px;
-  font-size: 1.5rem;
+  margin: 6px 0 4px;
+  font-size: 30px;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--color-ink);
   text-align: center;
+  text-wrap: balance;
   overflow-wrap: anywhere;
-  border-bottom: 1px solid var(--color-ink-soft);
-  padding-bottom: 8px;
 }
 
 .lines {
   list-style: none;
   margin: 0;
   padding: 0;
-  display: grid;
-  gap: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
 }
 
 .line {
-  display: grid;
-  grid-template-columns: 1fr auto auto;
-  gap: 12px;
+  display: flex;
   align-items: baseline;
-  animation: ink-in 300ms ease-out;
+  gap: 10px;
+  font-size: 22px;
+  line-height: 1.3;
+  animation: ink-in 0.55s ease both;
 }
 
 .name {
-  overflow-wrap: anywhere;
+  min-width: 0;
+  max-width: 48%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+.leader {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 2px dotted rgba(94, 64, 38, 0.45);
+  transform: translateY(-6px);
 }
 
 .math {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
   white-space: nowrap;
-  font-variant-numeric: tabular-nums;
+  font-size: 17px;
   color: var(--color-ink-soft);
 }
 
 .amount {
-  min-width: 0;
-  overflow-wrap: anywhere;
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 96px;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.empty {
+  margin: 0;
+  font-size: 22px;
+  font-style: italic;
+  color: var(--color-ink-soft);
+  text-align: center;
+}
+
+.divider {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+  color: var(--color-sepia);
+}
+
+.divider svg {
+  max-width: 100%;
+}
+
+.diamond {
+  fill: var(--color-rubric);
+}
+
+.totalLabel {
+  font-family: var(--font-caps);
+  font-size: 19px;
+  letter-spacing: 0.12em;
+  color: var(--color-rubric);
   text-align: right;
-  font-variant-numeric: tabular-nums;
 }
 
 .total {
   display: flex;
-  justify-content: space-between;
-  gap: 12px;
-  margin: 16px 0 0;
-  padding-top: 8px;
-  border-top: 2px solid var(--color-ink);
-  font-size: 1.3rem;
-}
-
-.totalAmount {
-  overflow-wrap: anywhere;
-  text-align: right;
-  color: #4f3300;
-  text-shadow: 0 1px 0 rgba(255, 230, 150, 0.6);
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px 18px;
+  font-family: var(--font-numeral);
+  font-weight: 700;
+  font-size: 50px;
+  line-height: 1;
+  color: var(--color-ink);
 }
 
 @keyframes ink-in {
   from {
     opacity: 0;
-    filter: blur(2px);
+    filter: blur(3px);
+    transform: translateY(5px);
   }
   to {
     opacity: 1;
     filter: none;
+    transform: none;
   }
 }
 
@@ -128,25 +126,17 @@
   }
 }
 
-@media (min-width: 900px) {
-  .invoice {
-    position: sticky;
-    top: 16px;
-  }
-}
-
-@media (max-width: 480px) {
-  .invoice {
-    padding: 48px 72px 56px 24px;
-  }
-
+@media (max-width: 520px) {
   .line {
-    grid-template-columns: 1fr auto;
+    flex-wrap: wrap;
   }
 
-  .math {
-    grid-column: 1 / -1;
-    grid-row: 2;
-    white-space: normal;
+  .name {
+    flex-basis: 100%;
+    max-width: 100%;
+  }
+
+  .total {
+    font-size: 40px;
   }
 }
