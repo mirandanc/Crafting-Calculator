@@ -100,7 +100,7 @@ describe('App', () => {
     await fillFirstCard(user, 'Copper Bar', '2', '25');
     await waitForCommit();
 
-    await user.click(screen.getByRole('button', { name: 'Clear all' }));
+    await user.click(screen.getByRole('button', { name: 'Clear the page' }));
     await user.click(screen.getByRole('button', { name: 'Yes, clear' }));
 
     expect(within(invoice).queryByText('Copper Bar')).toBeNull();

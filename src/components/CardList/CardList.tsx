@@ -42,19 +42,34 @@ export function CardList({ cards, onAdd, onChange, onNormalizePrice, onRemove, o
 
   return (
     <div className={styles.list}>
-      {cards.map((card, index) => (
-        <ItemCardEditor
-          key={card.id}
-          card={card}
-          position={index + 1}
-          onChange={(patch) => onChange(card.id, patch)}
-          onNormalizePrice={() => onNormalizePrice(card.id)}
-          onRemove={() => onRemove(card.id)}
-        />
-      ))}
+      <div className={styles.rows}>
+        {cards.map((card, index) => (
+          <ItemCardEditor
+            key={card.id}
+            card={card}
+            position={index + 1}
+            onChange={(patch) => onChange(card.id, patch)}
+            onNormalizePrice={() => onNormalizePrice(card.id)}
+            onRemove={() => onRemove(card.id)}
+          />
+        ))}
+      </div>
       <div className={styles.actions}>
-        <button type="button" onClick={onAdd}>
-          Add item
+        <button type="button" className={styles.stamp} onClick={onAdd}>
+          <svg
+            width="16"
+            height="16"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            aria-hidden="true"
+          >
+            <path d="M12 5v14" />
+            <path d="M5 12h14" />
+          </svg>
+          Add reagent
         </button>
         {confirmingClear ? (
           <div
@@ -65,9 +80,10 @@ export function CardList({ cards, onAdd, onChange, onNormalizePrice, onRemove, o
               if (event.key === 'Escape') closeConfirm();
             }}
           >
-            <span>Clear the recipe and every item?</span>
+            <span className={styles.question}>Clear the recipe and every item?</span>
             <button
               type="button"
+              className={styles.confirmYes}
               onClick={() => {
                 onClearAll();
                 closeConfirm();
@@ -75,13 +91,13 @@ export function CardList({ cards, onAdd, onChange, onNormalizePrice, onRemove, o
             >
               Yes, clear
             </button>
-            <button type="button" ref={cancelRef} onClick={closeConfirm}>
+            <button type="button" className={styles.ghost} ref={cancelRef} onClick={closeConfirm}>
               Cancel
             </button>
           </div>
         ) : (
-          <button type="button" ref={clearAllRef} onClick={openConfirm}>
-            Clear all
+          <button type="button" className={styles.ghost} ref={clearAllRef} onClick={openConfirm}>
+            Clear the page
           </button>
         )}
       </div>

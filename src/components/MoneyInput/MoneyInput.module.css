@@ -1,49 +1,38 @@
 .money {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: baseline;
+  gap: 12px;
+  min-inline-size: 0;
   margin: 0;
   padding: 0;
   border: 0;
-  min-inline-size: 0;
 }
 
-.legend {
-  padding: 0;
-  margin-bottom: 4px;
-  font-size: 0.85rem;
-  color: var(--color-gold-dim);
+.caption {
+  font-family: var(--font-caps);
+  letter-spacing: 0.05em;
 }
 
 .coin {
-  display: inline-flex;
+  display: flex;
   align-items: center;
-  gap: 4px;
+  gap: 2px;
+  font-size: 20px;
 }
 
 .input {
-  width: 4.5em;
+  padding: 2px 2px 3px;
+  font-size: 21px;
   text-align: right;
+  color: var(--color-ink);
 }
 
 .gold {
-  color: var(--color-coin-gold);
+  width: 48px;
 }
 
-.silver {
-  color: var(--color-coin-silver);
-}
-
+.silver,
 .copper {
-  color: var(--color-coin-copper);
-}
-
-@media (max-width: 480px) {
-  .input {
-    width: 3.5em;
-  }
-
-  .gold {
-    width: 6em;
-  }
+  width: 40px;
 }

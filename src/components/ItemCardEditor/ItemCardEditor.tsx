@@ -1,5 +1,5 @@
-import bagIcon from '@/assets/icons/inv_misc_bag_10.png';
 import styles from '@/components/ItemCardEditor/ItemCardEditor.module.css';
+import { toRoman } from '@/components/ItemCardEditor/toRoman';
 import { MoneyInput } from '@/components/MoneyInput/MoneyInput';
 import { MAX_QUANTITY, parseQuantity, type ItemCard, type ItemCardPatch } from '@/recipe/recipe';
 
@@ -16,40 +16,55 @@ export function ItemCardEditor({ card, position, onChange, onNormalizePrice, onR
 
   return (
     <article className={styles.card} aria-label={`Item ${position}`}>
-      <img className={styles.icon} src={bagIcon} alt="" width={40} height={40} />
-      <div className={styles.fields}>
-        <input
-          className={styles.name}
-          aria-label="Item name"
-          placeholder="Item name"
-          value={card.name}
-          onChange={(event) => onChange({ name: event.target.value })}
-        />
-        <div className={styles.row}>
-          <label className={styles.quantity}>
-            <span className={styles.label}>Quantity</span>
-            <input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={MAX_QUANTITY}
-              aria-invalid={quantityInvalid}
-              className={quantityInvalid ? styles.invalid : undefined}
-              value={card.quantity ?? ''}
-              onChange={(event) => onChange({ quantity: parseQuantity(event.target.value) })}
-            />
-          </label>
-          <MoneyInput
-            label="Unit price"
-            value={card.price}
-            onChange={(price) => onChange({ price })}
-            onBlur={onNormalizePrice}
-          />
-        </div>
-      </div>
+      <span className={styles.numeral} aria-hidden="true">
+        {toRoman(position)}
+      </span>
+      <input
+        className={styles.name}
+        aria-label="Item name"
+        placeholder="Reagent"
+        value={card.name}
+        onChange={(event) => onChange({ name: event.target.value })}
+      />
       <button type="button" className={styles.remove} aria-label={`Remove item ${position}`} onClick={onRemove}>
-        ✕
+        <svg
+          width="16"
+          height="16"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+          strokeLinecap="round"
+          aria-hidden="true"
+        >
+          <path d="M6 6l12 12" />
+          <path d="M18 6L6 18" />
+        </svg>
       </button>
+      <div className={styles.details}>
+        <label className={styles.quantity}>
+          <span className={styles.caption}>Qty</span>
+          <input
+            type="number"
+            inputMode="numeric"
+            min={1}
+            max={MAX_QUANTITY}
+            placeholder="0"
+            aria-label="Quantity"
+            aria-invalid={quantityInvalid}
+            className={quantityInvalid ? `${styles.quantityInput} ${styles.invalid}` : styles.quantityInput}
+            value={card.quantity ?? ''}
+            onChange={(event) => onChange({ quantity: parseQuantity(event.target.value) })}
+          />
+        </label>
+        <MoneyInput
+          label="Unit price"
+          caption="each"
+          value={card.price}
+          onChange={(price) => onChange({ price })}
+          onBlur={onNormalizePrice}
+        />
+      </div>
     </article>
   );
 }
