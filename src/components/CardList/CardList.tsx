@@ -12,23 +12,33 @@ type CardListProps = {
   onClearAll: () => void;
 };
 
+type FocusTarget = 'cancel' | 'clearAll' | null;
+
 export function CardList({ cards, onAdd, onChange, onNormalizePrice, onRemove, onClearAll }: CardListProps) {
   const [confirmingClear, setConfirmingClear] = useState(false);
-  const isFirstRender = useRef(true);
+  const focusTargetRef = useRef<FocusTarget>(null);
   const clearAllRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
-    if (isFirstRender.current) {
-      isFirstRender.current = false;
-      return;
-    }
-    if (confirmingClear) {
+    const target = focusTargetRef.current;
+    if (target === 'cancel') {
       cancelRef.current?.focus();
-    } else {
+    } else if (target === 'clearAll') {
       clearAllRef.current?.focus();
     }
+    focusTargetRef.current = null;
   }, [confirmingClear]);
+
+  const openConfirm = () => {
+    focusTargetRef.current = 'cancel';
+    setConfirmingClear(true);
+  };
+
+  const closeConfirm = () => {
+    focusTargetRef.current = 'clearAll';
+    setConfirmingClear(false);
+  };
 
   return (
     <div className={styles.list}>
@@ -52,7 +62,7 @@ export function CardList({ cards, onAdd, onChange, onNormalizePrice, onRemove, o
             role="group"
             aria-label="Confirm clear all"
             onKeyDown={(event) => {
-              if (event.key === 'Escape') setConfirmingClear(false);
+              if (event.key === 'Escape') closeConfirm();
             }}
           >
             <span>Clear every item?</span>
@@ -60,17 +70,17 @@ export function CardList({ cards, onAdd, onChange, onNormalizePrice, onRemove, o
               type="button"
               onClick={() => {
                 onClearAll();
-                setConfirmingClear(false);
+                closeConfirm();
               }}
             >
               Yes, clear
             </button>
-            <button type="button" ref={cancelRef} onClick={() => setConfirmingClear(false)}>
+            <button type="button" ref={cancelRef} onClick={closeConfirm}>
               Cancel
             </button>
           </div>
         ) : (
-          <button type="button" ref={clearAllRef} onClick={() => setConfirmingClear(true)}>
+          <button type="button" ref={clearAllRef} onClick={openConfirm}>
             Clear all
           </button>
         )}
