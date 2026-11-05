@@ -11,6 +11,7 @@ export function useCoinSound(muted: boolean): () => void {
     audioRef.current ??= Object.assign(new Audio(coinTossUrl), { volume: SOUND_VOLUME });
     audioRef.current.currentTime = 0;
     // play() rejects when the browser blocks audio; the sound is decoration, so ignore it.
-    audioRef.current.play().catch(() => undefined);
+    // Wrapped in Promise.resolve because jsdom (and some older browsers) can return undefined.
+    void Promise.resolve(audioRef.current.play()).catch(() => undefined);
   }, [muted]);
 }

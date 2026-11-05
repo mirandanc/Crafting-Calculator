@@ -10,7 +10,7 @@ export function MuteToggle({ muted, onToggle }: MuteToggleProps) {
     <button
       type="button"
       className={styles.toggle}
-      aria-label={muted ? 'Unmute sound' : 'Mute sound'}
+      aria-label="Mute sound"
       aria-pressed={muted}
       onClick={onToggle}
     >

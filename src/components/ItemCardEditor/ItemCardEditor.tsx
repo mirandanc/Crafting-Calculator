@@ -27,13 +27,12 @@ export function ItemCardEditor({ card, position, onChange, onNormalizePrice, onR
         />
         <div className={styles.row}>
           <label className={styles.quantity}>
-            <span className={styles.label}>Qty</span>
+            <span className={styles.label}>Quantity</span>
             <input
               type="number"
               inputMode="numeric"
               min={1}
               max={MAX_QUANTITY}
-              aria-label="Quantity"
               aria-invalid={quantityInvalid}
               className={quantityInvalid ? styles.invalid : undefined}
               value={card.quantity ?? ''}

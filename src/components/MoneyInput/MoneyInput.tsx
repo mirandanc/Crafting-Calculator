@@ -26,7 +26,12 @@ const COIN_FIELDS: CoinField[] = [
 
 export function MoneyInput({ label, value, onChange, onBlur }: MoneyInputProps) {
   return (
-    <fieldset className={styles.money} onBlur={onBlur}>
+    <fieldset
+      className={styles.money}
+      onBlur={(event) => {
+        if (!event.currentTarget.contains(event.relatedTarget)) onBlur();
+      }}
+    >
       <legend className={styles.legend}>{label}</legend>
       {COIN_FIELDS.map((field) => (
         <label key={field.key} className={styles.coin}>

@@ -57,3 +57,33 @@
 .remove {
   padding: 2px 8px;
 }
+
+@media (max-width: 480px) {
+  .card {
+    grid-template-columns: auto 1fr auto;
+    grid-template-areas:
+      'icon name remove'
+      'row row row';
+  }
+
+  .fields {
+    display: contents;
+  }
+
+  .icon {
+    grid-area: icon;
+  }
+
+  .name {
+    grid-area: name;
+    min-width: 0;
+  }
+
+  .row {
+    grid-area: row;
+  }
+
+  .remove {
+    grid-area: remove;
+  }
+}

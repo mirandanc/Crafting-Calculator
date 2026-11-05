@@ -1,9 +1,11 @@
 .money {
   display: flex;
+  flex-wrap: wrap;
   gap: 8px;
   margin: 0;
   padding: 0;
   border: 0;
+  min-inline-size: 0;
 }
 
 .legend {
@@ -34,4 +36,10 @@
 
 .copper {
   color: var(--color-coin-copper);
+}
+
+@media (max-width: 480px) {
+  .input {
+    width: 3.5em;
+  }
 }
