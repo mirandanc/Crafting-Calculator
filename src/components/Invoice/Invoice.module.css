@@ -6,7 +6,7 @@
   font-size: 1.05rem;
   color: var(--color-ink);
   /* Marcellus ships one weight only; a thin same-colour stroke thickens it without faux bold. */
-  -webkit-text-stroke: 0.45px currentColor;
+  -webkit-text-stroke: 0.75px currentColor;
 }
 
 .invoice::before,
