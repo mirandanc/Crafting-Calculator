@@ -2,6 +2,12 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "crafting-calculator",
   "compatibility_date": "2026-11-01",
+  // Wrangler runs the Vite build itself, so deploys work even without a dashboard build command.
+  "build": {
+    "command": "npm run build"
+  },
+  // Required by `wrangler preview`, which Cloudflare runs for pull-request builds.
+  "previews": {},
   // Static site only: Cloudflare serves the Vite build output, no Worker script.
   "assets": {
     "directory": "./dist"
