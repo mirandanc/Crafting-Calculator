@@ -1,5 +1,23 @@
 .toggle {
-  padding: 4px 10px;
-  font-size: 1.1rem;
-  line-height: 1;
+  flex: none;
+  width: 52px;
+  height: 52px;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--color-brass-edge);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--color-brass-ink);
+  background: radial-gradient(circle at 35% 30%, var(--color-brass-high), var(--color-brass-mid) 55%, var(--color-brass-low));
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 240, 200, 0.6);
+  transition: filter 0.2s, transform 0.15s;
+}
+
+.toggle:hover {
+  filter: brightness(1.12);
+}
+
+.toggle:active {
+  transform: scale(0.96);
 }

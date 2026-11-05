@@ -1,0 +1,30 @@
+/* Bookmark hanging from the bottom of the book; sits behind the pages, over the leather. */
+.ribbon {
+  position: absolute;
+  bottom: -78px;
+  right: 22%;
+  z-index: -1;
+  width: 30px;
+  height: 120px;
+  background: linear-gradient(90deg, var(--color-ribbon-dark), var(--color-ribbon) 45%, var(--color-ribbon-edge));
+  clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 84%, 0 100%);
+  box-shadow: 0 6px 10px rgba(0, 0, 0, 0.4);
+  transform-origin: top center;
+  animation: sway 6s ease-in-out infinite;
+}
+
+@keyframes sway {
+  0%,
+  100% {
+    transform: rotate(-1.5deg);
+  }
+  50% {
+    transform: rotate(1.8deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .ribbon {
+    animation: none;
+  }
+}
