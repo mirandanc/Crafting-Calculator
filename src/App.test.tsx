@@ -5,8 +5,8 @@ import { App } from '@/App';
 
 const renderApp = () => {
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-  render(<App />);
-  return { user, invoice: screen.getByRole('region', { name: 'Invoice' }) };
+  const { unmount } = render(<App />);
+  return { user, invoice: screen.getByRole('region', { name: 'Invoice' }), unmount };
 };
 
 const fillFirstCard = async (user: ReturnType<typeof userEvent.setup>, name: string, quantity: string, copper: string) => {
@@ -26,13 +26,17 @@ describe('App', () => {
 
   beforeEach(() => {
     localStorage.clear();
-    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.useFakeTimers();
+    // RTL's asyncWrapper (jestFakeTimersAreEnabled) only advances fake timers on its own when it
+    // detects a `jest` global; Vitest's fake timers alone aren't picked up, so shim it.
+    vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms) });
     play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
   });
 
   afterEach(() => {
     vi.useRealTimers();
     vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it('starts with one empty card and a blank invoice', () => {
@@ -104,12 +108,33 @@ describe('App', () => {
   });
 
   it('keeps the recipe after a reload', async () => {
-    const { user } = renderApp();
+    const { user, unmount } = renderApp();
+    await user.type(screen.getByLabelText('Recipe name'), 'Flask of the Titans');
+    await user.click(screen.getByRole('button', { name: 'Mute sound' }));
     await fillFirstCard(user, 'Copper Bar', '2', '25');
     await waitForCommit();
-    render(<App />);
+    unmount();
 
-    const invoices = screen.getAllByRole('region', { name: 'Invoice' });
-    expect(within(invoices[1]).getByText('Copper Bar')).toBeInTheDocument();
+    render(<App />);
+    await waitForCommit();
+
+    const invoice = screen.getByRole('region', { name: 'Invoice' });
+    expect(within(invoice).getByRole('heading', { name: 'Flask of the Titans' })).toBeInTheDocument();
+    expect(within(invoice).getByText('Copper Bar')).toBeInTheDocument();
+    expect(screen.getByRole('button', { name: 'Mute sound' })).toHaveAttribute('aria-pressed', 'true');
+  });
+
+  it('does not replay the sound for rows restored on reload', async () => {
+    const { user, unmount } = renderApp();
+    await fillFirstCard(user, 'Copper Bar', '2', '25');
+    await waitForCommit();
+    unmount();
+
+    render(<App />);
+    await waitForCommit();
+
+    const invoice = screen.getByRole('region', { name: 'Invoice' });
+    expect(within(invoice).getByText('Copper Bar')).toBeInTheDocument();
+    expect(play).toHaveBeenCalledTimes(1);
   });
 });
