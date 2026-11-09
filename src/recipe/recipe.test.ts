@@ -7,7 +7,6 @@ import {
   isCardFilled,
   lineTotal,
   MAX_QUANTITY,
-  parseCoin,
   parseQuantity,
   withoutCard,
   type ItemCard,
@@ -32,15 +31,6 @@ describe('parseQuantity', () => {
     expect(parseQuantity('3.7')).toBe(3);
     expect(parseQuantity('-2')).toBe(0);
     expect(parseQuantity('20000')).toBe(9_999);
-  });
-});
-
-describe('parseCoin', () => {
-  it('returns a whole non-negative number, 0 when empty or invalid', () => {
-    expect(parseCoin('')).toBe(0);
-    expect(parseCoin('25')).toBe(25);
-    expect(parseCoin('-1')).toBe(0);
-    expect(parseCoin('2.5')).toBe(2);
   });
 });
 

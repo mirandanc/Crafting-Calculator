@@ -37,3 +37,12 @@ export function formatMoney(total: number): string {
   if (copper > 0 || parts.length === 0) parts.push(`${copper}c`);
   return parts.join(' ');
 }
+
+export function parseCoin(raw: string): number {
+  const value = Number(raw);
+  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
+}
+
+export function coinsEqual(a: Coins, b: Coins): boolean {
+  return a.gold === b.gold && a.silver === b.silver && a.copper === b.copper;
+}

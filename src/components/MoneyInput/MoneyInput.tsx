@@ -1,7 +1,6 @@
 import { Coin } from '@/components/Coin/Coin';
 import styles from '@/components/MoneyInput/MoneyInput.module.css';
-import type { Coins } from '@/money/money';
-import { parseCoin } from '@/recipe/recipe';
+import { parseCoin, type Coins } from '@/money/money';
 
 type CoinField = {
   key: keyof Coins;

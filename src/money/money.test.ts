@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { formatMoney, fromCopper, GOLD_CAP_COPPER, normalizeCoins, toCopper } from '@/money/money';
+import { coinsEqual, formatMoney, fromCopper, GOLD_CAP_COPPER, normalizeCoins, parseCoin, toCopper } from '@/money/money';
 
 describe('toCopper', () => {
   it('converts gold, silver and copper to copper', () => {
@@ -53,5 +53,21 @@ describe('formatMoney', () => {
 
   it('formats totals above the gold cap', () => {
     expect(formatMoney(GOLD_CAP_COPPER * 2)).toBe('19,999,999g 99s 98c');
+  });
+});
+
+describe('parseCoin', () => {
+  it('returns a whole non-negative number, 0 when empty or invalid', () => {
+    expect(parseCoin('')).toBe(0);
+    expect(parseCoin('25')).toBe(25);
+    expect(parseCoin('-1')).toBe(0);
+    expect(parseCoin('2.5')).toBe(2);
+  });
+});
+
+describe('coinsEqual', () => {
+  it('compares every denomination', () => {
+    expect(coinsEqual({ gold: 1, silver: 2, copper: 3 }, { gold: 1, silver: 2, copper: 3 })).toBe(true);
+    expect(coinsEqual({ gold: 1, silver: 2, copper: 3 }, { gold: 1, silver: 2, copper: 4 })).toBe(false);
   });
 });

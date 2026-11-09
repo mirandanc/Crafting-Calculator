@@ -32,11 +32,6 @@ export function parseQuantity(raw: string): number | null {
   return Math.min(Math.max(Math.trunc(value), 0), MAX_QUANTITY);
 }
 
-export function parseCoin(raw: string): number {
-  const value = Number(raw);
-  return Number.isFinite(value) && value > 0 ? Math.trunc(value) : 0;
-}
-
 export function isCardFilled(card: ItemCard): boolean {
   return card.name.trim() !== '' && card.quantity !== null && card.quantity >= 1 && toCopper(card.price) > 0;
 }
