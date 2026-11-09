@@ -1,6 +1,7 @@
 import styles from '@/App.module.css';
 import { Ambience } from '@/components/Ambience/Ambience';
 import { CardList } from '@/components/CardList/CardList';
+import { Footer } from '@/components/Footer/Footer';
 import { Invoice } from '@/components/Invoice/Invoice';
 import { MuteToggle } from '@/components/MuteToggle/MuteToggle';
 import { Page } from '@/components/Page/Page';
@@ -46,6 +47,7 @@ export function App() {
         <Invoice title={recipe.title} lines={lines} />
         <Ribbon />
       </main>
+      <Footer />
     </div>
   );
 }

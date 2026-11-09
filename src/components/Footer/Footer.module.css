@@ -1,0 +1,28 @@
+/* Clears the ribbon that hangs 78px below the book. */
+.footer {
+  position: relative;
+  z-index: 1;
+  margin-top: 70px;
+  color: var(--color-paper-cream);
+}
+
+/* ForeverDB's attribution badge, as supplied by them. */
+.credit {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  font: 500 13px/1.2 system-ui, -apple-system, 'Segoe UI', sans-serif;
+  color: inherit;
+  text-decoration: none;
+  opacity: 0.85;
+  white-space: nowrap;
+}
+
+.credit:hover {
+  opacity: 1;
+}
+
+.credit img {
+  border: 0;
+  margin: 0;
+}
