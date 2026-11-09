@@ -1,13 +1,32 @@
 // @vitest-environment node
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import {
   buildCatalog,
+  createApiGet,
+  fetchProfession,
   isForeverRecipe,
   reagentIdsOf,
   retryDelayMs,
   type ApiRecipe,
   type ProfessionRecipes,
 } from '@scripts/fetch-recipes';
+
+type FakeClock = {
+  now: () => number;
+  sleep: (ms: number) => Promise<void>;
+  sleeps: number[];
+};
+
+function createClock(startMs: number): FakeClock {
+  let time = startMs;
+  const sleeps: number[] = [];
+  const now = (): number => time;
+  const sleep = async (ms: number): Promise<void> => {
+    sleeps.push(ms);
+    time += ms;
+  };
+  return { now, sleep, sleeps };
+}
 
 const apiRecipe = (overrides: Partial<ApiRecipe> = {}): ApiRecipe => ({
   spellId: 2659,
@@ -134,5 +153,127 @@ describe('retryDelayMs', () => {
   it('waits a full minute when the header is missing or unreadable', () => {
     expect(retryDelayMs(null, now)).toBe(60_000);
     expect(retryDelayMs('soon', now)).toBe(60_000);
+  });
+});
+
+describe('createApiGet', () => {
+  it('spaces requests at least 1,100 ms apart', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi.fn(async () => new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    await get('/a');
+    await get('/b');
+
+    expect(clock.sleeps).toEqual([1_100]);
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+  });
+
+  it('retries a 429 and honours Retry-After, then succeeds', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi
+      .fn()
+      .mockResolvedValueOnce(new Response('slow down', { status: 429, headers: { 'Retry-After': '5' } }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    const result = await get('/api/v1/items?q=copper');
+
+    expect(result).toEqual({ ok: true });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(clock.sleeps).toEqual([5_000]);
+  });
+
+  it('retries a 5xx response and gives up after 5 attempts', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi.fn(async () => new Response('oops', { status: 503 }));
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    await expect(get('/api/v1/professions')).rejects.toThrow(/5 attempts/);
+    expect(fetchFn).toHaveBeenCalledTimes(5);
+    expect(clock.sleeps).toEqual([2_000, 4_000, 8_000, 16_000]);
+  });
+
+  it('retries a network error (fetch rejecting) and gives up after 5 attempts', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi.fn(async () => {
+      throw new TypeError('network down');
+    });
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    await expect(get('/api/v1/professions')).rejects.toThrow(/5 attempts/);
+    expect(fetchFn).toHaveBeenCalledTimes(5);
+    expect(clock.sleeps).toEqual([2_000, 4_000, 8_000, 16_000]);
+  });
+
+  it('recovers from a network error once a later attempt succeeds', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi
+      .fn()
+      .mockRejectedValueOnce(new TypeError('network down'))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ ok: true }), { status: 200 }));
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    const result = await get('/api/v1/professions');
+
+    expect(result).toEqual({ ok: true });
+    expect(fetchFn).toHaveBeenCalledTimes(2);
+    expect(clock.sleeps).toEqual([2_000]);
+  });
+
+  it('resolves null for a 404 on an item lookup', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi.fn(async () => new Response('{}', { status: 404 }));
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    expect(await get('/api/v1/items/99999999')).toBeNull();
+  });
+
+  it('throws a clear error on a 404 for a non-item path', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi.fn(async () => new Response('{}', { status: 404 }));
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    await expect(get('/api/v1/professions/mining')).rejects.toThrow('/api/v1/professions/mining');
+  });
+});
+
+describe('fetchProfession', () => {
+  const profession = { slug: 'mining', name: 'Mining' };
+
+  it('stops when meta.next is missing', async () => {
+    const get = vi.fn(async () => ({
+      data: { recipes: [apiRecipe()] },
+      meta: { build: 'b', next: null },
+    }));
+
+    const result = await fetchProfession(get, profession);
+
+    expect(result).toEqual({ recipes: [apiRecipe()], build: 'b' });
+    expect(get).toHaveBeenCalledTimes(1);
+  });
+
+  it('follows meta.next until it runs out', async () => {
+    const page1 = {
+      data: { recipes: [apiRecipe({ spellId: 1 })] },
+      meta: { build: 'b', next: '/api/v1/professions/mining?limit=100&offset=100' },
+    };
+    const page2 = { data: { recipes: [apiRecipe({ spellId: 2 })] }, meta: { build: 'b' } };
+    const get = vi.fn().mockResolvedValueOnce(page1).mockResolvedValueOnce(page2);
+
+    const result = await fetchProfession(get, profession);
+
+    expect(result.recipes.map((recipe) => recipe.spellId)).toEqual([1, 2]);
+    expect(get).toHaveBeenCalledTimes(2);
+  });
+
+  it('throws when a next path repeats, instead of looping forever', async () => {
+    const loopingPath = '/api/v1/professions/mining?limit=100&offset=100';
+    const get = vi
+      .fn()
+      .mockResolvedValueOnce({ data: { recipes: [] }, meta: { build: 'b', next: loopingPath } })
+      .mockResolvedValueOnce({ data: { recipes: [] }, meta: { build: 'b', next: loopingPath } });
+
+    await expect(fetchProfession(get, profession)).rejects.toThrow(/repeated/);
   });
 });

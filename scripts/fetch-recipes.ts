@@ -7,8 +7,8 @@
  *
  * Only type imports from src/ (erased when Node strips types), so Node runs this file directly.
  */
-import { writeFile } from 'node:fs/promises';
-import { resolve } from 'node:path';
+import { mkdir, rename, writeFile } from 'node:fs/promises';
+import { dirname, resolve } from 'node:path';
 import { setTimeout as sleep } from 'node:timers/promises';
 import { fileURLToPath } from 'node:url';
 import type { CatalogItem, CatalogRecipe, RecipeCatalog } from '@/recipes/catalog';
@@ -57,13 +57,23 @@ type ApiItem = {
   data: { id: number; icon: string };
 };
 
-type ApiGet = (path: string) => Promise<unknown>;
+export type ApiGet = (path: string) => Promise<unknown>;
+
+export type ApiGetDeps = {
+  fetch: typeof fetch;
+  sleep: (ms: number) => Promise<void>;
+  now: () => number;
+};
 
 const API_ORIGIN = 'https://foreverdb.net';
 const OUTPUT_FILE = resolve('src/data/recipes.json');
 const REQUEST_INTERVAL_MS = 1_100; // about 54 a minute, under ForeverDB's 60/min
 const MAX_ATTEMPTS = 5;
 const DEFAULT_RETRY_MS = 60_000;
+const MAX_PAGES = 50;
+// Backoff for network errors and 5xx responses; 429 keeps its own Retry-After-driven delay.
+const RETRY_BACKOFF_MS: number[] = [2_000, 4_000, 8_000, 16_000];
+const ITEM_PATH = /^\/api\/v1\/items\/\d+$/;
 
 export function isForeverRecipe(recipe: ApiRecipe): boolean {
   if (recipe.speculation) return false;
@@ -121,42 +131,93 @@ export function retryDelayMs(retryAfter: string | null, now: number): number {
   return Number.isNaN(date) ? DEFAULT_RETRY_MS : Math.max(date - now, 0);
 }
 
-/** GET helper that spaces requests out and waits out 429s; resolves null on 404. */
-function createApiGet(apiKey: string): ApiGet {
+/**
+ * GET helper that spaces requests out, retries 429s (honouring Retry-After), network errors and 5xx
+ * responses (fixed backoff), and resolves null on 404 only for an item lookup; any other 404 throws.
+ */
+export function createApiGet(apiKey: string, deps: ApiGetDeps): ApiGet {
   let lastRequestAt = 0;
   return async (path) => {
     for (let attempt = 1; attempt <= MAX_ATTEMPTS; attempt += 1) {
-      const wait = lastRequestAt + REQUEST_INTERVAL_MS - Date.now();
-      if (wait > 0) await sleep(wait);
-      lastRequestAt = Date.now();
-      const response = await fetch(`${API_ORIGIN}${path}`, {
-        headers: { 'X-API-Key': apiKey, Accept: 'application/json' },
-      });
-      if (response.status === 429) {
-        const delay = retryDelayMs(response.headers.get('Retry-After'), Date.now());
-        console.warn(`Rate limited on ${path}; waiting ${Math.ceil(delay / 1_000)} s (attempt ${attempt}/${MAX_ATTEMPTS})`);
-        await sleep(delay);
+      const wait = lastRequestAt + REQUEST_INTERVAL_MS - deps.now();
+      if (wait > 0) await deps.sleep(wait);
+      lastRequestAt = deps.now();
+
+      let response: Response;
+      try {
+        response = await deps.fetch(`${API_ORIGIN}${path}`, {
+          headers: { 'X-API-Key': apiKey, Accept: 'application/json' },
+        });
+      } catch (error) {
+        if (attempt === MAX_ATTEMPTS) {
+          throw new Error(`GET ${path} failed after ${MAX_ATTEMPTS} attempts: ${(error as Error).message}`);
+        }
+        const delay = RETRY_BACKOFF_MS[attempt - 1];
+        console.warn(
+          `Network error on ${path} (${(error as Error).message}); retrying in ${delay / 1_000} s (attempt ${attempt}/${MAX_ATTEMPTS})`,
+        );
+        await deps.sleep(delay);
         continue;
       }
-      if (response.status === 404) return null;
+
+      if (response.status === 429) {
+        if (attempt === MAX_ATTEMPTS) throw new Error(`GET ${path} was still rate limited after ${MAX_ATTEMPTS} attempts`);
+        const delay = retryDelayMs(response.headers.get('Retry-After'), deps.now());
+        console.warn(`Rate limited on ${path}; waiting ${Math.ceil(delay / 1_000)} s (attempt ${attempt}/${MAX_ATTEMPTS})`);
+        await deps.sleep(delay);
+        continue;
+      }
+
+      if (response.status >= 500) {
+        if (attempt === MAX_ATTEMPTS) {
+          throw new Error(`GET ${path} failed after ${MAX_ATTEMPTS} attempts with HTTP ${response.status}`);
+        }
+        const delay = RETRY_BACKOFF_MS[attempt - 1];
+        console.warn(`Server error ${response.status} on ${path}; retrying in ${delay / 1_000} s (attempt ${attempt}/${MAX_ATTEMPTS})`);
+        await deps.sleep(delay);
+        continue;
+      }
+
+      if (response.status === 404) {
+        if (ITEM_PATH.test(path)) return null;
+        throw new Error(`GET ${path} returned 404`);
+      }
+
       if (!response.ok) throw new Error(`GET ${path} failed with HTTP ${response.status}`);
       return response.json();
     }
-    throw new Error(`GET ${path} was still rate limited after ${MAX_ATTEMPTS} attempts`);
+    throw new Error(`GET ${path} exhausted ${MAX_ATTEMPTS} attempts`);
   };
 }
 
-async function fetchProfession(get: ApiGet, profession: ApiProfession): Promise<{ recipes: ApiRecipe[]; build: string }> {
+export async function fetchProfession(get: ApiGet, profession: ApiProfession): Promise<{ recipes: ApiRecipe[]; build: string }> {
   const recipes: ApiRecipe[] = [];
   let build = '';
   let next: string | null = `/api/v1/professions/${profession.slug}?limit=100&offset=0`;
+  const seenPaths = new Set<string>();
+  let pageCount = 0;
   while (next !== null) {
+    if (seenPaths.has(next)) throw new Error(`Pagination loop detected while fetching ${profession.slug}: ${next} repeated`);
+    seenPaths.add(next);
+    pageCount += 1;
+    if (pageCount > MAX_PAGES) throw new Error(`Exceeded ${MAX_PAGES} pages while fetching ${profession.slug}`);
+
     const page = (await get(next)) as ApiProfessionPage;
     recipes.push(...page.data.recipes);
+    if (build !== '' && page.meta.build !== build) {
+      console.warn(`${profession.name} pages report different builds: ${build} vs ${page.meta.build}`);
+    }
     build = page.meta.build;
     next = page.meta.next ?? null;
   }
   return { recipes, build };
+}
+
+async function writeCatalog(catalog: RecipeCatalog): Promise<void> {
+  await mkdir(dirname(OUTPUT_FILE), { recursive: true });
+  const tmpFile = `${OUTPUT_FILE}.tmp`;
+  await writeFile(tmpFile, `${JSON.stringify(catalog, null, 2)}\n`);
+  await rename(tmpFile, OUTPUT_FILE);
 }
 
 async function main(): Promise<void> {
@@ -165,13 +226,16 @@ async function main(): Promise<void> {
     console.error('FOREVERDB_API_KEY is missing. Copy .env.example to .env and put your ForeverDB key in it.');
     process.exit(1);
   }
-  const get = createApiGet(apiKey);
+  const get = createApiGet(apiKey, { fetch, sleep, now: Date.now });
 
   const list = (await get('/api/v1/professions')) as ApiProfessionList;
   const professions: ProfessionRecipes[] = [];
   let build = '';
   for (const profession of list.data) {
     const fetched = await fetchProfession(get, profession);
+    if (build !== '' && fetched.build !== build) {
+      console.warn(`${profession.name} reports build ${fetched.build}, expected ${build}`);
+    }
     build = fetched.build;
     professions.push({ profession: profession.name, recipes: fetched.recipes });
     console.log(`${profession.name}: ${fetched.recipes.length} recipes`);
@@ -188,7 +252,7 @@ async function main(): Promise<void> {
   }
 
   const catalog = buildCatalog(professions, icons, build);
-  await writeFile(OUTPUT_FILE, `${JSON.stringify(catalog)}\n`);
+  await writeCatalog(catalog);
   const missingIcons = Object.values(catalog.items).filter((item) => item.icon === null).length;
   console.log(
     `Wrote ${catalog.recipes.length} recipes and ${Object.keys(catalog.items).length} reagents ` +
