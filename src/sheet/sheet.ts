@@ -70,19 +70,20 @@ export function createDefaultSheet(): Sheet {
   return { entries: [createRecipeBlock()], prices: {}, muted: false };
 }
 
-function parseWhole(raw: string, max: number): number | null {
+function parseWhole(raw: string, min: number, max: number): number | null {
   if (raw.trim() === '') return null;
   const value = Number(raw);
   if (!Number.isFinite(value)) return null;
-  return Math.min(Math.max(Math.trunc(value), 0), max);
+  return Math.min(Math.max(Math.trunc(value), min), max);
 }
 
 export function parseQuantity(raw: string): number | null {
-  return parseWhole(raw, MAX_QUANTITY);
+  return parseWhole(raw, 0, MAX_QUANTITY);
 }
 
+/** ×N is at least 1 once entered: an empty field stays null, but '0' (or any lower value) clamps up to 1. */
 export function parseWanted(raw: string): number | null {
-  return parseWhole(raw, MAX_WANTED);
+  return parseWhole(raw, 1, MAX_WANTED);
 }
 
 export function priceKey(name: string): string {
@@ -91,7 +92,7 @@ export function priceKey(name: string): string {
 
 export function priceOf(prices: Prices, key: string): Coins {
   const price: Coins | undefined = prices[key];
-  return price ?? NO_PRICE;
+  return price ?? { ...NO_PRICE };
 }
 
 export function unitPriceOf(prices: Prices, key: string): number {

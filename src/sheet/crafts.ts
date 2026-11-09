@@ -28,6 +28,10 @@ export function craftNote(plan: CraftPlan, makes: CatalogProduct | null): string
   return `${plan.crafts} ${plural(plan.crafts, 'craft', 'crafts')} → ${plan.produced} ${makes.name}${extra}`;
 }
 
+/**
+ * Deliberately uncapped: MAX_QUANTITY and MAX_WANTED only bound a single input field, but the amount
+ * a reagent's quantity multiplies out to is what the player actually has to buy, however large.
+ */
 export function reagentQuantity(perCraft: number, plan: CraftPlan): number {
   return perCraft * plan.crafts;
 }

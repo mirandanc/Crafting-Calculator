@@ -14,7 +14,7 @@ describe('isEntryFullyPriced', () => {
     expect(isEntryFullyPriced(itemRow('a', 'Linen Cloth', 2), {})).toBe(false);
   });
 
-  it('uses the id price for a linked row', () => {
+  it("a linked row uses its name's price", () => {
     expect(isEntryFullyPriced(itemRow('a', 'Copper Bar', 1, 2840), BOTH_BARS)).toBe(true);
   });
 

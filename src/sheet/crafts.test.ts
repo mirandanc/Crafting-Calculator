@@ -26,6 +26,11 @@ describe('planCrafts', () => {
     expect(planCrafts(null, BRONZE_BAR)).toEqual({ crafts: 0, produced: null, extra: 0 });
     expect(planCrafts(0, BRONZE_BAR)).toEqual({ crafts: 0, produced: null, extra: 0 });
   });
+
+  it('still crafts once when the yield is larger than ×N wanted', () => {
+    const BUNDLE_OF_100: CatalogProduct = { itemId: 1, name: 'Linen Bundle', count: 100 };
+    expect(planCrafts(1, BUNDLE_OF_100)).toEqual({ crafts: 1, produced: 100, extra: 99 });
+  });
 });
 
 describe('craftNote', () => {
@@ -33,6 +38,11 @@ describe('craftNote', () => {
     expect(craftNote(planCrafts(11, BRONZE_BAR), BRONZE_BAR)).toBe('6 crafts → 12 Bronze Bar (1 extra)');
     expect(craftNote(planCrafts(1, BRONZE_BAR), BRONZE_BAR)).toBe('1 craft → 2 Bronze Bar (1 extra)');
     expect(craftNote(planCrafts(10, BRONZE_BAR), BRONZE_BAR)).toBe('5 crafts → 10 Bronze Bar');
+  });
+
+  it('notes a big surplus when the yield dwarfs ×N wanted', () => {
+    const BUNDLE_OF_100: CatalogProduct = { itemId: 1, name: 'Linen Bundle', count: 100 };
+    expect(craftNote(planCrafts(1, BUNDLE_OF_100), BUNDLE_OF_100)).toBe('1 craft → 100 Linen Bundle (99 extra)');
   });
 
   it('says nothing for single-yield recipes, casts, or no crafts', () => {

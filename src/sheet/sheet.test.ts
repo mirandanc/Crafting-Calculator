@@ -18,7 +18,16 @@ import {
   type Prices,
   type RecipeBlock,
 } from '@/sheet/sheet';
+import { summarizeShopping } from '@/sheet/shopping';
 import { TEST_CATALOG, testRecipe } from '@/test/catalogFixture';
+
+function deepFreeze<T>(value: T): T {
+  if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
+    for (const prop of Object.getOwnPropertyNames(value)) deepFreeze((value as Record<string, unknown>)[prop]);
+    Object.freeze(value);
+  }
+  return value;
+}
 
 const emptyBlock = (wanted: number | null = null): RecipeBlock => ({ kind: 'recipe', id: 'r', recipe: null, wanted });
 
@@ -51,6 +60,11 @@ describe('parseQuantity and parseWanted', () => {
     expect(parseWanted('1500')).toBe(MAX_WANTED);
     expect(MAX_WANTED).toBe(999);
   });
+
+  it('clamps parseWanted up to 1: ×N is never zero once entered', () => {
+    expect(parseWanted('0')).toBe(1);
+    expect(parseWanted('-5')).toBe(1);
+  });
 });
 
 describe('prices', () => {
@@ -66,6 +80,12 @@ describe('prices', () => {
     expect(priceOf(prices, 'name:nothing')).toEqual({ gold: 0, silver: 0, copper: 0 });
     expect(unitPriceOf(prices, 'name:copper bar')).toBe(105);
     expect(unitPriceOf(prices, 'name:x')).toBe(0);
+  });
+
+  it('returns a fresh object for a missing price, never the shared default', () => {
+    const first = priceOf(prices, 'name:nothing');
+    first.gold = 999;
+    expect(priceOf(prices, 'name:also-nothing')).toEqual({ gold: 0, silver: 0, copper: 0 });
   });
 });
 
@@ -133,5 +153,21 @@ describe('item rows', () => {
     });
     expect(linked).toMatchObject({ name: 'Copper Bar', itemId: 2840, icon: 'https://foreverdb.net/icons/133216.webp' });
     expect(withItemName(linked, 'Copper Bars')).toMatchObject({ name: 'Copper Bars', itemId: null, icon: null });
+  });
+});
+
+describe('immutability', () => {
+  it('never mutates frozen entries or prices', () => {
+    const block = deepFreeze(withRecipe(emptyBlock(), testRecipe('Smelt Bronze'), TEST_CATALOG.items));
+    const row = deepFreeze(createItemRow());
+    const entries = deepFreeze([block, row]);
+    const prices = deepFreeze({ 'name:copper bar': { gold: 0, silver: 1, copper: 0 } });
+
+    expect(() => {
+      withRecipe(block, testRecipe('Smelt Bronze'), TEST_CATALOG.items);
+      withoutReagent(block, 2840);
+      withItemName(row, 'Copper Bars');
+      summarizeShopping(entries, prices);
+    }).not.toThrow();
   });
 });
