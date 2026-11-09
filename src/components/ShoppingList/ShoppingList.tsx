@@ -24,7 +24,9 @@ export function ShoppingList({ summary }: ShoppingListProps) {
                 <ItemIcon src={line.icon} size="small" />
               )}
               <span className={styles.what}>
-                <span className={styles.name}>{line.name}</span>
+                <span className={styles.name} title={line.name}>
+                  {line.name}
+                </span>
                 {line.sources.length > 0 && <span className={styles.sources}>{line.sources.join(', ')}</span>}
               </span>
               <span className={styles.leader} aria-hidden="true" />
@@ -35,7 +37,7 @@ export function ShoppingList({ summary }: ShoppingListProps) {
                     <MoneyText copper={line.unitPrice} srPrefix={`${line.quantity} × `} />
                   </>
                 ) : (
-                  <span>{line.quantity} ×</span>
+                  <span>{line.quantity}</span>
                 )}
               </span>
               <span className={styles.amount}>
@@ -52,22 +54,26 @@ export function ShoppingList({ summary }: ShoppingListProps) {
         <p className={styles.empty}>Nothing to buy yet.</p>
       )}
       {hasLines && (
-        <>
-          <div className={styles.divider} aria-hidden="true">
-            <svg width="260" height="18" viewBox="0 0 260 18" fill="none" stroke="currentColor" strokeWidth="1.2">
-              <path d="M0 9h108" />
-              <path d="M152 9h108" />
-              <path className={styles.diamond} d="M130 1l8 8-8 8-8-8z" stroke="none" />
-              <circle cx="114" cy="9" r="2" fill="currentColor" stroke="none" />
-              <circle cx="146" cy="9" r="2" fill="currentColor" stroke="none" />
-            </svg>
-          </div>
-          <span className={styles.totalLabel}>Total cost</span>
-        </>
+        <div className={styles.divider} aria-hidden="true">
+          <svg width="260" height="18" viewBox="0 0 260 18" fill="none" stroke="currentColor" strokeWidth="1.2">
+            <path d="M0 9h108" />
+            <path d="M152 9h108" />
+            <path className={styles.diamond} d="M130 1l8 8-8 8-8-8z" stroke="none" />
+            <circle cx="114" cy="9" r="2" fill="currentColor" stroke="none" />
+            <circle cx="146" cy="9" r="2" fill="currentColor" stroke="none" />
+          </svg>
+        </div>
       )}
-      {/* Always mounted so screen readers announce the total and the unpriced count as they change. */}
-      <div className={styles.totals} aria-live="polite">
-        <div className={styles.total}>{hasLines && <MoneyText copper={total} />}</div>
+      <div className={styles.totals}>
+        {/* Always mounted, and the label lives inside the live region, so a change is never announced as a bare number. */}
+        <div className={styles.total} aria-live="polite">
+          {hasLines && total > 0 && (
+            <>
+              <span className={styles.totalLabel}>Total cost</span>
+              <MoneyText copper={total} />
+            </>
+          )}
+        </div>
         {unpricedCount > 0 && (
           <p className={styles.unpricedNote}>
             {unpricedCount} {unpricedCount === 1 ? 'item' : 'items'} unpriced

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import styles from '@/components/EntryList/EntryList.module.css';
 import { ItemRowEditor } from '@/components/ItemRowEditor/ItemRowEditor';
 import { RecipeBlockEditor } from '@/components/RecipeBlockEditor/RecipeBlockEditor';
@@ -16,6 +16,9 @@ type EntryListProps = {
 
 type FocusTarget = 'cancel' | 'erase' | null;
 
+/** Where focus should land once the next render settles, after removing an entry. */
+type EntryFocusTarget = { kind: 'entry'; id: string } | { kind: 'addRecipe' } | null;
+
 function PlusIcon() {
   return (
     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" aria-hidden="true">
@@ -27,9 +30,13 @@ function PlusIcon() {
 
 export function EntryList({ entries, prices, catalog, actions, onReachable }: EntryListProps) {
   const [confirmingErase, setConfirmingErase] = useState(false);
+  const questionId = useId();
   const focusTargetRef = useRef<FocusTarget>(null);
   const eraseRef = useRef<HTMLButtonElement>(null);
   const cancelRef = useRef<HTMLButtonElement>(null);
+  const entriesRef = useRef<HTMLDivElement>(null);
+  const addRecipeRef = useRef<HTMLButtonElement>(null);
+  const entryFocusRef = useRef<EntryFocusTarget>(null);
 
   useEffect(() => {
     const target = focusTargetRef.current;
@@ -41,6 +48,21 @@ export function EntryList({ entries, prices, catalog, actions, onReachable }: En
     focusTargetRef.current = null;
   }, [confirmingErase]);
 
+  // Runs after every entries change, including a removal: picks up the pending target (if any) and
+  // focuses it once the removed entry's DOM is actually gone. A no-op when nothing is pending, so
+  // it's safe to re-run under StrictMode's double-invoked effects.
+  useEffect(() => {
+    const target = entryFocusRef.current;
+    if (target === null) return;
+    entryFocusRef.current = null;
+    if (target.kind === 'addRecipe') {
+      addRecipeRef.current?.focus();
+      return;
+    }
+    const field = entriesRef.current?.querySelector<HTMLElement>(`[data-entry-id="${target.id}"] input`);
+    field?.focus();
+  }, [entries]);
+
   const openConfirm = () => {
     focusTargetRef.current = 'cancel';
     setConfirmingErase(true);
@@ -51,48 +73,62 @@ export function EntryList({ entries, prices, catalog, actions, onReachable }: En
     setConfirmingErase(false);
   };
 
+  const removeEntry = (id: string) => {
+    const index = entries.findIndex((entry) => entry.id === id);
+    if (index !== -1 && index < entries.length - 1) {
+      entryFocusRef.current = { kind: 'entry', id: entries[index + 1].id };
+    } else if (index > 0) {
+      entryFocusRef.current = { kind: 'entry', id: entries[index - 1].id };
+    } else {
+      entryFocusRef.current = { kind: 'addRecipe' };
+    }
+    actions.removeEntry(id);
+  };
+
   return (
     <div className={styles.list}>
-      <div className={styles.entries}>
+      <div className={styles.entries} ref={entriesRef}>
         {entries.map((entry, index) => {
           if (entry.kind === 'recipe') {
             return (
-              <RecipeBlockEditor
-                key={entry.id}
-                block={entry}
-                position={index + 1}
-                catalog={catalog}
-                prices={prices}
-                onChoose={(recipe, items) => actions.chooseRecipe(entry.id, recipe, items)}
-                onWantedChange={(wanted) => actions.setWanted(entry.id, wanted)}
-                onRemoveReagent={(itemId) => actions.removeReagent(entry.id, itemId)}
-                onPriceChange={actions.setPrice}
-                onPriceBlur={actions.normalizePrice}
-                onRemove={() => actions.removeEntry(entry.id)}
-              />
+              <div key={entry.id} data-entry-id={entry.id} className={styles.entryWrapper}>
+                <RecipeBlockEditor
+                  block={entry}
+                  position={index + 1}
+                  catalog={catalog}
+                  prices={prices}
+                  onChoose={(recipe, items) => actions.chooseRecipe(entry.id, recipe, items)}
+                  onWantedChange={(wanted) => actions.setWanted(entry.id, wanted)}
+                  onRemoveReagent={(itemId) => actions.removeReagent(entry.id, itemId)}
+                  onPriceChange={actions.setPrice}
+                  onPriceBlur={actions.normalizePrice}
+                  onRemove={() => removeEntry(entry.id)}
+                />
+              </div>
             );
           }
-          const key = priceKey(entry.name);
+          const itemKey = priceKey(entry.name);
           return (
-            <ItemRowEditor
-              key={entry.id}
-              row={entry}
-              position={index + 1}
-              price={priceOf(prices, key)}
-              onRename={(name) => actions.renameItem(entry.id, name)}
-              onLink={(item) => actions.linkItem(entry.id, item)}
-              onQuantityChange={(quantity) => actions.setItemQuantity(entry.id, quantity)}
-              onPriceChange={(price) => actions.setPrice(key, price)}
-              onPriceBlur={() => actions.normalizePrice(key)}
-              onRemove={() => actions.removeEntry(entry.id)}
-              onReachable={onReachable}
-            />
+            <div key={entry.id} data-entry-id={entry.id} className={styles.entryWrapper}>
+              <ItemRowEditor
+                row={entry}
+                position={index + 1}
+                price={priceOf(prices, itemKey)}
+                onRename={(name) => actions.renameItem(entry.id, name)}
+                onLink={(item) => actions.linkItem(entry.id, item)}
+                onQuantityChange={(quantity) => actions.setItemQuantity(entry.id, quantity)}
+                onPriceChange={(price) => actions.setPrice(itemKey, price)}
+                onPriceBlur={() => actions.normalizePrice(itemKey)}
+                onRemove={() => removeEntry(entry.id)}
+                onReachable={onReachable}
+              />
+            </div>
           );
         })}
       </div>
       <div className={styles.actions}>
         <div className={styles.adds}>
-          <button type="button" className={styles.stamp} onClick={actions.addRecipe}>
+          <button type="button" className={styles.stamp} ref={addRecipeRef} onClick={actions.addRecipe}>
             <PlusIcon />
             Add recipe
           </button>
@@ -105,12 +141,14 @@ export function EntryList({ entries, prices, catalog, actions, onReachable }: En
           <div
             className={styles.confirm}
             role="group"
-            aria-label="Confirm erase"
+            aria-labelledby={questionId}
             onKeyDown={(event) => {
               if (event.key === 'Escape') closeConfirm();
             }}
           >
-            <span className={styles.question}>Clear every recipe and item?</span>
+            <span id={questionId} className={styles.question}>
+              Clear every recipe and item?
+            </span>
             <button
               type="button"
               className={styles.confirmYes}

@@ -10,6 +10,11 @@
   flex-direction: column;
 }
 
+/* A plain marker for focus management (see EntryList.tsx); it must not affect layout. */
+.entryWrapper {
+  display: contents;
+}
+
 .actions {
   margin-top: auto;
   display: flex;

@@ -168,6 +168,14 @@
     white-space: normal;
   }
 
+  .math {
+    flex-wrap: wrap;
+  }
+
+  .amount {
+    min-width: 0;
+  }
+
   .total {
     font-size: 40px;
   }
