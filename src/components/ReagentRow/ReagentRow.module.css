@@ -1,0 +1,51 @@
+.reagent {
+  display: grid;
+  grid-template-columns: 30px minmax(0, 1fr) 30px;
+  align-items: center;
+  gap: 4px 10px;
+  padding: 8px 0;
+  border-bottom: 1px dotted rgba(107, 60, 20, 0.28);
+}
+
+.reagent:last-child {
+  border-bottom: 0;
+}
+
+.iconGap {
+  width: 30px;
+  height: 30px;
+}
+
+.name {
+  min-width: 0;
+  font-size: 20px;
+  color: var(--color-ink);
+  overflow-wrap: anywhere;
+}
+
+.pricing {
+  grid-column: 2 / -1;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 18px;
+  font-size: 16px;
+  color: var(--color-ink-soft);
+}
+
+.count {
+  display: inline-flex;
+  align-items: baseline;
+  gap: 3px;
+  min-width: 44px;
+  font-family: var(--font-numeral);
+  font-weight: 700;
+  font-size: 18px;
+  color: var(--color-rubric);
+}
+
+@media (max-width: 520px) {
+  .pricing {
+    grid-column: 1 / -1;
+  }
+}
