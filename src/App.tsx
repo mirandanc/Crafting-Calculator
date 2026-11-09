@@ -6,6 +6,7 @@ import { EntryList } from '@/components/EntryList/EntryList';
 import { Footer } from '@/components/Footer/Footer';
 import { MuteToggle } from '@/components/MuteToggle/MuteToggle';
 import { Page } from '@/components/Page/Page';
+import { RecipeBookNotice } from '@/components/RecipeBookNotice/RecipeBookNotice';
 import { Ribbon } from '@/components/Ribbon/Ribbon';
 import { ShoppingList } from '@/components/ShoppingList/ShoppingList';
 import { useRecipeCatalog } from '@/recipes/useRecipeCatalog';
@@ -16,7 +17,7 @@ import { useCoinSound } from '@/sound/useCoinSound';
 
 export function App() {
   const { sheet, actions } = useSheet();
-  const catalog = useRecipeCatalog();
+  const { catalog, failed: catalogFailed } = useRecipeCatalog();
   const playCoin = useCoinSound(sheet.muted);
   useChimeOnFullyPriced(sheet.entries, sheet.prices, playCoin);
   const [connectionLost, setConnectionLost] = useState(false);
@@ -33,6 +34,7 @@ export function App() {
       <main className={styles.book}>
         <div className={styles.stitching} aria-hidden="true" />
         <Page side="left" label="Reagents" heading="Reagents">
+          <RecipeBookNotice failed={catalogFailed} />
           <ConnectionNotice lost={connectionLost} />
           <EntryList
             entries={sheet.entries}

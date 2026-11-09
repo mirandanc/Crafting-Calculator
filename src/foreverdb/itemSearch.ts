@@ -18,7 +18,7 @@ type ItemListResponse = {
 
 /** A non-OK HTTP answer from the Worker; `status` lets callers tell a client error from a server one. */
 export class ItemSearchHttpError extends Error {
-  readonly status: number;
+  status: number;
 
   constructor(status: number) {
     super(`Item search failed: ${status}`);

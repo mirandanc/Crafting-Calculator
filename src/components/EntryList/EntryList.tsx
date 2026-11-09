@@ -2,6 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react';
 import styles from '@/components/EntryList/EntryList.module.css';
 import { ItemRowEditor } from '@/components/ItemRowEditor/ItemRowEditor';
 import { RecipeBlockEditor } from '@/components/RecipeBlockEditor/RecipeBlockEditor';
+import type { Coins } from '@/money/money';
 import type { RecipeCatalog } from '@/recipes/catalog';
 import { priceKey, priceOf, type Entry, type Prices } from '@/sheet/sheet';
 import type { SheetActions } from '@/sheet/useSheet';
@@ -16,8 +17,10 @@ type EntryListProps = {
 
 type FocusTarget = 'cancel' | 'erase' | null;
 
-/** Where focus should land once the next render settles, after removing an entry. */
-type EntryFocusTarget = { kind: 'entry'; id: string } | { kind: 'addRecipe' } | null;
+/** Where focus should land once the next render settles, after adding or removing an entry. */
+type EntryFocusTarget = { kind: 'entry'; id: string } | { kind: 'lastEntry' } | { kind: 'addRecipe' } | null;
+
+const NO_PRICE: Coins = { gold: 0, silver: 0, copper: 0 };
 
 function PlusIcon() {
   return (
@@ -48,9 +51,9 @@ export function EntryList({ entries, prices, catalog, actions, onReachable }: En
     focusTargetRef.current = null;
   }, [confirmingErase]);
 
-  // Runs after every entries change, including a removal: picks up the pending target (if any) and
-  // focuses it once the removed entry's DOM is actually gone. A no-op when nothing is pending, so
-  // it's safe to re-run under StrictMode's double-invoked effects.
+  // Runs after every entries change, including an add or a removal: picks up the pending target (if
+  // any) and focuses it once the new entry is rendered or the removed entry's DOM is actually gone.
+  // A no-op when nothing is pending, so it's safe to re-run under StrictMode's double-invoked effects.
   useEffect(() => {
     const target = entryFocusRef.current;
     if (target === null) return;
@@ -59,7 +62,9 @@ export function EntryList({ entries, prices, catalog, actions, onReachable }: En
       addRecipeRef.current?.focus();
       return;
     }
-    const field = entriesRef.current?.querySelector<HTMLElement>(`[data-entry-id="${target.id}"] input`);
+    const id = target.kind === 'entry' ? target.id : entries.at(-1)?.id;
+    if (id === undefined) return;
+    const field = entriesRef.current?.querySelector<HTMLElement>(`[data-entry-id="${id}"] input`);
     field?.focus();
   }, [entries]);
 
@@ -71,6 +76,17 @@ export function EntryList({ entries, prices, catalog, actions, onReachable }: En
   const closeConfirm = () => {
     focusTargetRef.current = 'erase';
     setConfirmingErase(false);
+  };
+
+  // Focus moves into the new entry, so a space typed next doesn't press the button again.
+  const addRecipe = () => {
+    entryFocusRef.current = { kind: 'lastEntry' };
+    actions.addRecipe();
+  };
+
+  const addItem = () => {
+    entryFocusRef.current = { kind: 'lastEntry' };
+    actions.addItem();
   };
 
   const removeEntry = (id: string) => {
@@ -107,18 +123,23 @@ export function EntryList({ entries, prices, catalog, actions, onReachable }: En
               </div>
             );
           }
-          const itemKey = priceKey(entry.name);
+          // A nameless row has no price key: its price stays empty and is never stored under 'name:'.
+          const itemKey = entry.name.trim() === '' ? null : priceKey(entry.name);
           return (
             <div key={entry.id} data-entry-id={entry.id} className={styles.entryWrapper}>
               <ItemRowEditor
                 row={entry}
                 position={index + 1}
-                price={priceOf(prices, itemKey)}
+                price={itemKey === null ? NO_PRICE : priceOf(prices, itemKey)}
                 onRename={(name) => actions.renameItem(entry.id, name)}
                 onLink={(item) => actions.linkItem(entry.id, item)}
                 onQuantityChange={(quantity) => actions.setItemQuantity(entry.id, quantity)}
-                onPriceChange={(price) => actions.setPrice(itemKey, price)}
-                onPriceBlur={() => actions.normalizePrice(itemKey)}
+                onPriceChange={(price) => {
+                  if (itemKey !== null) actions.setPrice(itemKey, price);
+                }}
+                onPriceBlur={() => {
+                  if (itemKey !== null) actions.normalizePrice(itemKey);
+                }}
                 onRemove={() => removeEntry(entry.id)}
                 onReachable={onReachable}
               />
@@ -128,11 +149,11 @@ export function EntryList({ entries, prices, catalog, actions, onReachable }: En
       </div>
       <div className={styles.actions}>
         <div className={styles.adds}>
-          <button type="button" className={styles.stamp} ref={addRecipeRef} onClick={actions.addRecipe}>
+          <button type="button" className={styles.stamp} ref={addRecipeRef} onClick={addRecipe}>
             <PlusIcon />
             Add recipe
           </button>
-          <button type="button" className={styles.stampQuiet} onClick={actions.addItem}>
+          <button type="button" className={styles.stampQuiet} onClick={addItem}>
             <PlusIcon />
             Add item
           </button>

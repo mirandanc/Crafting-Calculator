@@ -37,6 +37,16 @@
   width: 40px;
 }
 
+/* Disabled until the row has a name: faded, and the tooltip on the group says why. */
+.money:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+
+.money:disabled .input {
+  cursor: not-allowed;
+}
+
 @media (max-width: 520px) {
   .money {
     gap: 8px;

@@ -21,7 +21,8 @@ export const STORAGE_KEY = 'crafting-calculator:v2';
 /** Older formats are dropped on load, not migrated. */
 const LEGACY_STORAGE_KEYS: string[] = ['crafting-calculator:v1'];
 
-const PRICE_KEY: RegExp = /^(id:\d+|name:.*)$/;
+/** Prices are keyed by item name; the blank row's key, 'name:', is dropped. */
+const PRICE_KEY: RegExp = /^name:.+$/s;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);

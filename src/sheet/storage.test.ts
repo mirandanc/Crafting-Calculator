@@ -91,6 +91,8 @@ describe('sheet storage', () => {
       saved([VALID_ROW], {
         'name:copper bar': { gold: 0, silver: 0, copper: 150 },
         bogus: { gold: 1, silver: 0, copper: 0 },
+        'id:2840': { gold: 0, silver: 0, copper: 5 },
+        'name:': { gold: 0, silver: 0, copper: 50 },
         'name:linen cloth': 'cheap',
       }),
     );

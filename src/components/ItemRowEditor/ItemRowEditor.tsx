@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Autocomplete, type SearchOption } from '@/components/Autocomplete/Autocomplete';
 import { EntryNumeral } from '@/components/EntryNumeral/EntryNumeral';
 import styles from '@/components/ItemRowEditor/ItemRowEditor.module.css';
@@ -32,10 +33,14 @@ export function ItemRowEditor({
   onRemove,
   onReachable,
 }: ItemRowEditorProps) {
+  // Only rows edited in this session search: a restored row stays quiet until the user types in it.
   // A linked row doesn't search (its name came from ForeverDB); typing unlinks it and searching resumes.
-  const results = useItemSearch(row.itemId === null ? row.name : '', onReachable);
+  const [edited, setEdited] = useState(false);
+  const results = useItemSearch(edited && row.itemId === null ? row.name : '', onReachable);
   const options: SearchOption[] = results.map((item) => ({ key: String(item.id), label: item.name, detail: null, icon: item.icon }));
   const quantityInvalid = row.quantity === 0;
+  // Prices are keyed by name, so a nameless row has no price of its own to set.
+  const unnamed = row.name.trim() === '';
 
   const link = (option: SearchOption) => {
     const item = results.find((candidate) => String(candidate.id) === option.key);
@@ -48,10 +53,13 @@ export function ItemRowEditor({
       <Autocomplete
         label="Item name"
         value={row.name}
-        placeholder="Reagent"
+        placeholder="Search an item"
         options={options}
         inputClassName={styles.name}
-        onInputChange={onRename}
+        onInputChange={(name) => {
+          setEdited(true);
+          onRename(name);
+        }}
         onSelect={link}
       />
       <RemoveButton label={`Remove item ${position}`} size="normal" onClick={onRemove} />
@@ -71,7 +79,14 @@ export function ItemRowEditor({
             onChange={(event) => onQuantityChange(parseQuantity(event.target.value))}
           />
         </label>
-        <MoneyInput label="Unit price" caption="each" value={price} onChange={onPriceChange} onBlur={onPriceBlur} />
+        <MoneyInput
+          label="Unit price"
+          caption="each"
+          value={price}
+          onChange={onPriceChange}
+          onBlur={onPriceBlur}
+          disabledReason={unnamed ? 'Name the item first' : undefined}
+        />
       </div>
     </article>
   );

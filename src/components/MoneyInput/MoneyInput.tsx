@@ -13,14 +13,18 @@ type MoneyInputProps = {
   value: Coins;
   onChange: (value: Coins) => void;
   onBlur: () => void;
+  /** When set, the fields are disabled and this explains why (as the group's tooltip). */
+  disabledReason?: string;
 };
 
 const COIN_FIELDS: CoinField[] = [{ key: 'gold' }, { key: 'silver', max: 99 }, { key: 'copper', max: 99 }];
 
-export function MoneyInput({ label, caption, value, onChange, onBlur }: MoneyInputProps) {
+export function MoneyInput({ label, caption, value, onChange, onBlur, disabledReason }: MoneyInputProps) {
   return (
     <fieldset
       className={styles.money}
+      disabled={disabledReason !== undefined}
+      title={disabledReason}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) onBlur();
       }}

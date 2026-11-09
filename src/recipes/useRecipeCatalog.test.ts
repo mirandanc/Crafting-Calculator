@@ -27,23 +27,24 @@ describe('useRecipeCatalog', () => {
     const useRecipeCatalog = await freshHook();
 
     const { result } = renderHook(() => useRecipeCatalog());
-    expect(result.current).toBeNull();
-    await waitFor(() => expect(result.current).toEqual(TEST_CATALOG));
+    expect(result.current).toEqual({ catalog: null, failed: false });
+    await waitFor(() => expect(result.current).toEqual({ catalog: TEST_CATALOG, failed: false }));
   });
 
-  it('logs a failed load and allows a retry on the next mount', async () => {
+  it('reports a failed load, logs it and allows a retry on the next mount', async () => {
     fetchMock = vi.fn(async () => new Response('missing', { status: 404 }));
     vi.stubGlobal('fetch', fetchMock);
     const useRecipeCatalog = await freshHook();
 
     const first = renderHook(() => useRecipeCatalog());
     await waitFor(() => expect(consoleErrorSpy).toHaveBeenCalled());
-    expect(first.result.current).toBeNull();
+    expect(first.result.current).toEqual({ catalog: null, failed: true });
     first.unmount();
 
     fetchMock.mockResolvedValueOnce(new Response(JSON.stringify(TEST_CATALOG)));
     const second = renderHook(() => useRecipeCatalog());
-    await waitFor(() => expect(second.result.current).toEqual(TEST_CATALOG));
+    expect(second.result.current).toEqual({ catalog: null, failed: false });
+    await waitFor(() => expect(second.result.current).toEqual({ catalog: TEST_CATALOG, failed: false }));
     expect(fetchMock).toHaveBeenCalledTimes(2);
   });
 });

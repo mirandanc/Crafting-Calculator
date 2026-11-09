@@ -5,6 +5,7 @@ import { App } from '@/App';
 import recipesUrl from '@/data/recipes.json?url';
 import type { ForeverItem } from '@/foreverdb/itemSearch';
 import { loadRecipeCatalog } from '@/recipes/loadRecipeCatalog';
+import { saveSheet, STORAGE_KEY } from '@/sheet/storage';
 import { TEST_CATALOG } from '@/test/catalogFixture';
 
 type User = ReturnType<typeof userEvent.setup>;
@@ -28,6 +29,9 @@ const SEARCH_RESULTS: ForeverItem[] = [
   { ...COPPER_BAR, id: 900001, name: 'Copper Bar Crate', betaEvent: true },
   { ...COPPER_BAR, id: 900002, name: 'Copper Bar Mold', speculation: true },
 ];
+
+const CONNECTION_LOST = 'Lost touch with ForeverDB. Item search will try again as you type.';
+const RECIPE_BOOK_FAILED = 'The recipe book could not be opened. Recipe search is unavailable.';
 
 const jsonResponse = (body: unknown): Response => new Response(JSON.stringify(body));
 
@@ -75,6 +79,7 @@ describe('App', () => {
   let play: MockInstance<HTMLMediaElement['play']>;
   let fetchMock: Mock<typeof fetch>;
   let answerItemSearch: Mock<() => Promise<Response>>;
+  let answerRecipes: Mock<() => Promise<Response>>;
 
   beforeEach(() => {
     localStorage.clear();
@@ -84,9 +89,10 @@ describe('App', () => {
     vi.stubGlobal('jest', { advanceTimersByTime: (ms: number) => vi.advanceTimersByTime(ms) });
     play = vi.spyOn(HTMLMediaElement.prototype, 'play').mockResolvedValue(undefined);
     answerItemSearch = vi.fn(async () => jsonResponse({ data: SEARCH_RESULTS }));
+    answerRecipes = vi.fn(async () => jsonResponse(TEST_CATALOG));
     fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
-      if (url === recipesUrl) return jsonResponse(TEST_CATALOG);
+      if (url === recipesUrl) return answerRecipes();
       if (url.startsWith('/api/items?')) return answerItemSearch();
       throw new Error(`Unexpected request: ${url}`);
     });
@@ -229,22 +235,61 @@ describe('App', () => {
   it('shows a discreet line when ForeverDB cannot be reached, and hides it after a success', async () => {
     answerItemSearch.mockRejectedValueOnce(new TypeError('offline'));
     const { user } = await renderApp();
-    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    expect(screen.queryByText(CONNECTION_LOST)).toBeNull();
     await user.click(screen.getByRole('button', { name: 'Add item' }));
     const name = within(itemArticle(2)).getByRole('combobox', { name: 'Item name' });
     await user.type(name, 'copper');
-    expect(
-      await screen.findByText('Lost touch with ForeverDB. Item search will try again as you type.'),
-    ).toBeInTheDocument();
+    expect(await screen.findByText(CONNECTION_LOST)).toBeInTheDocument();
     await user.type(name, ' bar');
     await screen.findByRole('option', { name: 'Copper Bar' });
-    expect(screen.getByRole('status')).toBeEmptyDOMElement();
+    expect(screen.queryByText(CONNECTION_LOST)).toBeNull();
+  });
+
+  it('does not search for restored item rows until they are edited', async () => {
+    saveSheet({
+      entries: [{ kind: 'item', id: 'linen', name: 'Linen Cloth', itemId: null, icon: null, quantity: 2 }],
+      prices: {},
+      muted: false,
+    });
+    answerItemSearch.mockRejectedValue(new TypeError('offline'));
+    const { user } = await renderApp();
+    await advance(1000);
+    expect(answerItemSearch).not.toHaveBeenCalled();
+    expect(screen.queryByText(CONNECTION_LOST)).toBeNull();
+    await user.type(within(itemArticle(1)).getByRole('combobox', { name: 'Item name' }), 's');
+    await advance(300);
+    expect(fetchMock).toHaveBeenCalledWith('/api/items?q=Linen%20Cloths', expect.anything());
+    expect(screen.getByText(CONNECTION_LOST)).toBeInTheDocument();
+  });
+
+  it('says when the recipe book cannot be opened, and stays quiet while it loads', async () => {
+    let failCatalog: () => void = () => undefined;
+    answerRecipes.mockImplementationOnce(
+      () =>
+        new Promise<Response>((resolve) => {
+          failCatalog = () => resolve(new Response('missing', { status: 500 }));
+        }),
+    );
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    // A fresh module graph: the catalog the other tests loaded is cached per module instance.
+    vi.resetModules();
+    const fresh = await import('@/App');
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<fresh.App />);
+    await user.type(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' }), 'smelt');
+    expect(screen.queryAllByRole('option')).toHaveLength(0);
+    expect(screen.queryByText(RECIPE_BOOK_FAILED)).toBeNull();
+    failCatalog();
+    expect(await screen.findByText(RECIPE_BOOK_FAILED)).toBeInTheDocument();
+    expect(consoleError).toHaveBeenCalled();
   });
 
   it('rolls copper up into silver when the price field loses focus', async () => {
     const { user } = await renderApp();
     await user.click(screen.getByRole('button', { name: 'Add item' }));
     const row = itemArticle(2);
+    await user.type(within(row).getByRole('combobox', { name: 'Item name' }), 'Linen Cloth');
+    await advance(300);
     await user.type(within(row).getByLabelText('Unit price copper'), '150');
     await user.click(within(row).getByLabelText('Quantity'));
     expect(within(row).getByLabelText('Unit price silver')).toHaveValue(1);
@@ -294,6 +339,41 @@ describe('App', () => {
     await user.type(screen.getByLabelText('Copper Bar price copper'), '10');
     await waitForChime();
     expect(play).not.toHaveBeenCalled();
+  });
+
+  it('never prices an item row that has no name', async () => {
+    saveSheet({
+      entries: [{ kind: 'item', id: 'blank', name: '', itemId: null, icon: null, quantity: null }],
+      prices: { 'name:': { gold: 0, silver: 0, copper: 50 } },
+      muted: false,
+    });
+    const { user } = await renderApp();
+    const restored = within(itemArticle(1)).getByLabelText('Unit price copper');
+    expect(restored).toHaveValue(null);
+    expect(restored).toBeDisabled();
+    await user.click(screen.getByRole('button', { name: 'Add item' }));
+    const row = itemArticle(2);
+    expect(within(row).getByLabelText('Unit price copper')).toHaveValue(null);
+    expect(within(row).getByLabelText('Unit price copper')).toBeDisabled();
+    await user.type(within(row).getByRole('combobox', { name: 'Item name' }), 'Linen Cloth');
+    await advance(300);
+    expect(within(row).getByLabelText('Unit price copper')).toBeEnabled();
+    expect(within(itemArticle(1)).getByLabelText('Unit price copper')).toBeDisabled();
+    const stored: unknown = JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null');
+    expect(stored).toMatchObject({ prices: {} });
+  });
+
+  it('moves focus to the new entry after "Add item" or "Add recipe"', async () => {
+    const { user } = await renderApp();
+    await user.click(screen.getByRole('button', { name: 'Add item' }));
+    const name = within(itemArticle(2)).getByRole('combobox', { name: 'Item name' });
+    expect(name).toHaveFocus();
+    expect(name).toHaveAttribute('placeholder', 'Search an item');
+    // A space typed next lands in the new field instead of pressing the button again.
+    await user.keyboard(' ');
+    expect(articleNames()).toEqual(['Recipe 1', 'Item 2']);
+    await user.click(screen.getByRole('button', { name: 'Add recipe' }));
+    expect(within(recipeArticle(3)).getByRole('combobox', { name: 'Recipe' })).toHaveFocus();
   });
 
   it('removes entries and always keeps one empty recipe field', async () => {
