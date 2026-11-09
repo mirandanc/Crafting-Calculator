@@ -12,7 +12,10 @@ export function useRecipeCatalog(): RecipeCatalog | null {
       (loaded) => {
         if (active) setCatalog(loaded);
       },
-      () => undefined,
+      (error: unknown) => {
+        // loadRecipeCatalog() resets its cache on failure, so the next mount tries again.
+        if (active) console.error('Failed to load the recipe catalog', error);
+      },
     );
     return () => {
       active = false;

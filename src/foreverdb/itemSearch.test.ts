@@ -29,6 +29,11 @@ describe('fetchItems', () => {
     vi.stubGlobal('fetch', vi.fn(async () => new Response('{}', { status: 502 })));
     await expect(fetchItems('copper', new AbortController().signal)).rejects.toThrow('Item search failed: 502');
   });
+
+  it('throws when the response body is not a list', async () => {
+    vi.stubGlobal('fetch', vi.fn(async () => new Response(JSON.stringify({ data: 'not a list' }))));
+    await expect(fetchItems('copper', new AbortController().signal)).rejects.toThrow('Item search failed: invalid response');
+  });
 });
 
 describe('pickItemMatches', () => {
