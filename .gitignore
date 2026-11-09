@@ -9,6 +9,5 @@ coverage/
 !.env.example
 .dev.vars*
 
-# Wrangler state and generated Worker types
+# Wrangler state
 .wrangler/
-worker/worker-configuration.d.ts
