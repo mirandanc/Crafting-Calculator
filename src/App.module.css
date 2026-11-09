@@ -68,27 +68,6 @@
   pointer-events: none;
 }
 
-.titleField {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-
-.titleCaption {
-  font-family: var(--font-caps);
-  font-size: 16px;
-  letter-spacing: 0.08em;
-  color: var(--color-ink-soft);
-}
-
-.titleInput {
-  width: 100%;
-  padding: 4px 2px 6px;
-  font-size: 30px;
-  font-style: italic;
-  color: var(--color-ink);
-}
-
 @keyframes unfold {
   from {
     opacity: 0;
