@@ -57,7 +57,7 @@ export function ItemRowEditor({
       <RemoveButton label={`Remove item ${position}`} size="normal" onClick={onRemove} />
       <div className={styles.details}>
         <label className={styles.quantity}>
-          <span className={styles.caption}>Qty</span>
+          <span className={styles.caption}>Quantity</span>
           <input
             type="number"
             inputMode="numeric"

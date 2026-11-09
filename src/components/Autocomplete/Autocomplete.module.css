@@ -9,7 +9,8 @@
   top: calc(100% + 4px);
   left: 0;
   right: 0;
-  max-height: 320px;
+  /* 8 options at 44px (border-box) + 8px vertical padding + 2px border = 362px, so all 8 fit unscrolled. */
+  max-height: 362px;
   overflow-y: auto;
   margin: 0;
   padding: 4px 0;
@@ -34,9 +35,8 @@
   color: var(--color-ink);
 }
 
-/* The active option (keyboard) and the hovered one share the rubric highlight. */
-.option[aria-selected='true'],
-.option:hover {
+/* The active option gets the rubric highlight; JS sets it on hover too, so there's one at a time. */
+.option[aria-selected='true'] {
   background: rgba(125, 29, 16, 0.12);
   box-shadow: inset 3px 0 0 var(--color-rubric);
 }

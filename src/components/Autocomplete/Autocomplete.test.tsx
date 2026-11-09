@@ -110,4 +110,34 @@ describe('Autocomplete', () => {
     await user.click(screen.getByRole('button', { name: 'Elsewhere' }));
     expect(input).toHaveAttribute('aria-expanded', 'false');
   });
+
+  it('closes when Tab moves focus away', async () => {
+    const { user, input } = setup();
+    await user.type(input, 'cop');
+    expect(input).toHaveAttribute('aria-expanded', 'true');
+    await user.tab();
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+  });
+
+  it('makes the option under the mouse the active one', async () => {
+    const { user, input } = setup();
+    await user.type(input, 'cop');
+    const [first, second] = screen.getAllByRole('option');
+    await user.hover(second);
+    expect(second).toHaveAttribute('aria-selected', 'true');
+    expect(first).toHaveAttribute('aria-selected', 'false');
+    expect(input).toHaveAttribute('aria-activedescendant', second.id);
+  });
+
+  it('opens the list again on click, so the same option can be picked twice', async () => {
+    const { user, input } = setup();
+    await user.type(input, 'cop');
+    await user.click(screen.getByRole('option', { name: 'Copper Bar' }));
+    expect(input).toHaveAttribute('aria-expanded', 'false');
+
+    await user.click(input);
+
+    expect(input).toHaveAttribute('aria-expanded', 'true');
+    expect(screen.getAllByRole('option')).toHaveLength(2);
+  });
 });

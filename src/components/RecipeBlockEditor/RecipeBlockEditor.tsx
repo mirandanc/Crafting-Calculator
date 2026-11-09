@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Autocomplete, type SearchOption } from '@/components/Autocomplete/Autocomplete';
 import { EntryNumeral } from '@/components/EntryNumeral/EntryNumeral';
 import { ReagentRow } from '@/components/ReagentRow/ReagentRow';
@@ -38,7 +38,7 @@ export function RecipeBlockEditor({
   // The search text is local: a picked recipe stays until another one is picked, and leaving the
   // field puts its name back.
   const [query, setQuery] = useState(recipe?.name ?? '');
-  const matches = catalog === null ? [] : searchRecipes(catalog, query);
+  const matches = useMemo(() => (catalog === null ? [] : searchRecipes(catalog, query)), [catalog, query]);
   const options: SearchOption[] = matches.map((match) => ({
     key: String(match.id),
     label: match.name,
@@ -48,7 +48,6 @@ export function RecipeBlockEditor({
   const plan = planCrafts(block.wanted, recipe?.makes ?? null);
   const note = recipe === null ? null : craftNote(plan, recipe.makes);
   const casts = recipe !== null && recipe.makes === null;
-  const wantedInvalid = block.wanted === 0;
 
   const choose = (option: SearchOption) => {
     const chosen = matches.find((match) => String(match.id) === option.key);
@@ -87,8 +86,7 @@ export function RecipeBlockEditor({
                 max={MAX_WANTED}
                 placeholder="1"
                 aria-label={casts ? 'Casts' : 'Amount wanted'}
-                aria-invalid={wantedInvalid}
-                className={wantedInvalid ? `${styles.wantedInput} ${styles.invalid}` : styles.wantedInput}
+                className={styles.wantedInput}
                 value={block.wanted ?? ''}
                 onChange={(event) => onWantedChange(parseWanted(event.target.value))}
               />

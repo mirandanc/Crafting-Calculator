@@ -1,19 +1,27 @@
 import { render, screen, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { describe, expect, it, vi } from 'vitest';
+import type { ComponentProps } from 'react';
+import { describe, expect, it, vi, type Mock } from 'vitest';
 import { RecipeBlockEditor } from '@/components/RecipeBlockEditor/RecipeBlockEditor';
 import type { Prices, RecipeBlock } from '@/sheet/sheet';
 import { TEST_CATALOG } from '@/test/catalogFixture';
 import { coins, recipeBlock } from '@/test/sheetFixtures';
 
+type Props = ComponentProps<typeof RecipeBlockEditor>;
+
+type Handlers = {
+  onChoose: Mock<Props['onChoose']>;
+  onWantedChange: Mock<Props['onWantedChange']>;
+  onRemoveReagent: Mock<Props['onRemoveReagent']>;
+  onPriceChange: Mock<Props['onPriceChange']>;
+  onPriceBlur: Mock<Props['onPriceBlur']>;
+  onRemove: Mock<Props['onRemove']>;
+};
+
 const EMPTY_BLOCK: RecipeBlock = { kind: 'recipe', id: 'r', recipe: null, wanted: null };
 
 const renderBlock = (block: RecipeBlock, prices: Prices = {}) => {
-  // Not annotated with an explicit `Handlers` type: `ReturnType<typeof vi.fn>` resolves vi.fn's
-  // generic constraint to `Mock<Constructable | Procedure>`, which TS then refuses to assign to the
-  // component's concrete handler props (vitest 5's `vi.fn` type). Direct `vi.fn()` calls infer
-  // `Mock<Procedure>`, whose `(...args: any[]) => any` call signature matches any handler.
-  const handlers = {
+  const handlers: Handlers = {
     onChoose: vi.fn(),
     onWantedChange: vi.fn(),
     onRemoveReagent: vi.fn(),
@@ -71,5 +79,14 @@ describe('RecipeBlockEditor', () => {
     const { handlers, user, article } = renderBlock(recipeBlock('r', 'Smelt Bronze', null));
     await user.type(within(article).getByLabelText('Amount wanted'), '4');
     expect(handlers.onWantedChange).toHaveBeenLastCalledWith(4);
+  });
+
+  it('puts the picked recipe name back when the field is left without picking another', async () => {
+    const { user, article } = renderBlock(recipeBlock('r', 'Smelt Bronze', 1));
+    const input = within(article).getByRole('combobox', { name: 'Recipe' });
+    await user.clear(input);
+    await user.type(input, 'xyz');
+    await user.tab();
+    expect(input).toHaveValue('Smelt Bronze');
   });
 });

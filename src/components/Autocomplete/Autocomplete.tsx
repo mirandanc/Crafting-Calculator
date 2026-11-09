@@ -1,4 +1,4 @@
-import { useId, useState, type KeyboardEvent } from 'react';
+import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import styles from '@/components/Autocomplete/Autocomplete.module.css';
 import { ItemIcon } from '@/components/ItemIcon/ItemIcon';
 
@@ -38,9 +38,20 @@ export function Autocomplete({
   const listboxId = useId();
   const [open, setOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState(NO_OPTION);
+  const optionNodes = useRef<Map<number, HTMLLIElement>>(new Map());
   const expanded = open && options.length > 0;
   const active = expanded && activeIndex < options.length ? activeIndex : NO_OPTION;
   const optionId = (index: number): string => `${listboxId}-option-${index}`;
+
+  useEffect(() => {
+    if (active === NO_OPTION) return;
+    // jsdom (used in tests) has no scrollIntoView; the optional call simply does nothing there.
+    optionNodes.current.get(active)?.scrollIntoView?.({ block: 'nearest' });
+  }, [active]);
+
+  const openIfThereAreOptions = () => {
+    if (options.length > 0) setOpen(true);
+  };
 
   const close = () => {
     setOpen(false);
@@ -94,21 +105,34 @@ export function Autocomplete({
           setActiveIndex(NO_OPTION);
         }}
         onKeyDown={handleKeyDown}
+        onFocus={openIfThereAreOptions}
+        onClick={openIfThereAreOptions}
         onBlur={() => {
           close();
           onBlur?.();
         }}
       />
-      <ul id={listboxId} role="listbox" aria-label={`${label} suggestions`} className={styles.listbox} hidden={!expanded}>
+      <ul
+        id={listboxId}
+        role="listbox"
+        aria-label={`${label} suggestions`}
+        className={styles.listbox}
+        hidden={!expanded}
+        // Keep focus in the input so pressing the scrollbar (or an option) doesn't blur it first.
+        onMouseDown={(event) => event.preventDefault()}
+      >
         {options.map((option, index) => (
           <li
             key={option.key}
             id={optionId(index)}
+            ref={(node) => {
+              if (node === null) optionNodes.current.delete(index);
+              else optionNodes.current.set(index, node);
+            }}
             role="option"
             aria-selected={index === active}
             className={styles.option}
-            // Keep focus in the input so the click doesn't blur (and close) the list first.
-            onMouseDown={(event) => event.preventDefault()}
+            onMouseEnter={() => setActiveIndex(index)}
             onClick={() => choose(option)}
           >
             {option.icon !== null && <ItemIcon src={option.icon} size="small" />}

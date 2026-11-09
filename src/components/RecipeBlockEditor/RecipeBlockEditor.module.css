@@ -54,12 +54,6 @@
   color: var(--color-ink);
 }
 
-.invalid {
-  border-bottom-color: var(--color-ribbon);
-  box-shadow: 0 1px 0 var(--color-ribbon);
-  background: rgba(168, 36, 26, 0.1);
-}
-
 .caption,
 .profession {
   font-family: var(--font-caps);
