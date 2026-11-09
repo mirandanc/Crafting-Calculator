@@ -1,9 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
-import type { Entry } from '@/sheet/sheet';
-import { loadSheet } from '@/sheet/storage';
+import type { Entry, Sheet } from '@/sheet/sheet';
+import { loadSheet, saveSheet } from '@/sheet/storage';
 import { useSheet } from '@/sheet/useSheet';
 import { TEST_CATALOG, testRecipe } from '@/test/catalogFixture';
+import { itemRow } from '@/test/sheetFixtures';
 
 const reagentCount = (entry: Entry): number | null => (entry.kind === 'recipe' ? (entry.recipe?.reagents.length ?? null) : null);
 
@@ -73,5 +74,20 @@ describe('useSheet', () => {
     const { result } = renderHook(() => useSheet());
     act(() => result.current.actions.addItem());
     expect(loadSheet()?.entries).toHaveLength(2);
+  });
+
+  it('keeps the same action identities across re-renders', () => {
+    const { result, rerender } = renderHook(() => useSheet());
+    const firstActions = result.current.actions;
+    act(() => result.current.actions.addItem());
+    rerender();
+    expect(result.current.actions).toBe(firstActions);
+  });
+
+  it('starts from a sheet already in storage, including muted', () => {
+    const existing: Sheet = { entries: [itemRow('a', 'Linen Cloth', 2)], prices: {}, muted: true };
+    saveSheet(existing);
+    const { result } = renderHook(() => useSheet());
+    expect(result.current.sheet).toEqual(existing);
   });
 });

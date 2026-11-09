@@ -21,7 +21,7 @@ export const STORAGE_KEY = 'crafting-calculator:v2';
 /** Older formats are dropped on load, not migrated. */
 const LEGACY_STORAGE_KEYS: string[] = ['crafting-calculator:v1'];
 
-const PRICE_KEY = /^(id:\d+|name:.*)$/;
+const PRICE_KEY: RegExp = /^(id:\d+|name:.*)$/;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -74,9 +74,14 @@ function parsePickedRecipe(value: unknown): PickedRecipe | null {
   }
   const makes = value.makes === null ? null : parseProduct(value.makes);
   if (value.makes !== null && makes === null) return null;
-  const reagents = value.reagents
-    .map((reagent: unknown) => parseReagent(reagent))
-    .filter((reagent): reagent is ReagentLine => reagent !== null);
+  const reagents: ReagentLine[] = [];
+  const seenItemIds = new Set<number>();
+  for (const raw of value.reagents) {
+    const reagent = parseReagent(raw);
+    if (reagent === null || seenItemIds.has(reagent.itemId)) continue;
+    seenItemIds.add(reagent.itemId);
+    reagents.push(reagent);
+  }
   return { spellId: value.spellId, name: value.name, profession: value.profession, icon: value.icon, makes, reagents };
 }
 
@@ -85,7 +90,7 @@ function parseRecipeBlock(value: UnknownRecord, id: string): RecipeBlock | null 
   if (value.recipe !== null && recipe === null) return null;
   const wanted = readNullable(value.wanted, isFiniteNumber);
   if (wanted === undefined) return null;
-  return { kind: 'recipe', id, recipe, wanted: wanted === null ? null : parseWanted(String(wanted)) };
+  return { kind: 'recipe', id, recipe, wanted: wanted === null || wanted < 1 ? null : parseWanted(String(wanted)) };
 }
 
 function parseItemRow(value: UnknownRecord, id: string): ItemRow | null {
@@ -99,12 +104,12 @@ function parseItemRow(value: UnknownRecord, id: string): ItemRow | null {
     name: value.name,
     itemId,
     icon,
-    quantity: quantity === null ? null : parseQuantity(String(quantity)),
+    quantity: quantity === null || quantity < 1 ? null : parseQuantity(String(quantity)),
   };
 }
 
 function parseEntry(value: unknown): Entry | null {
-  if (!isRecord(value) || !isString(value.id)) return null;
+  if (!isRecord(value) || !isString(value.id) || value.id.trim() === '') return null;
   if (value.kind === 'recipe') return parseRecipeBlock(value, value.id);
   if (value.kind === 'item') return parseItemRow(value, value.id);
   return null;

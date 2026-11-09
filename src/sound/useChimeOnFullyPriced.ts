@@ -17,14 +17,15 @@ export function useChimeOnFullyPriced(entries: Entry[], prices: Prices, onChime:
 
   useEffect(() => {
     const ready = fullyPricedEntryIds(entries, prices);
-    announcedRef.current = pruneAnnounced(announcedRef.current, ready);
 
-    // One shared debounce: any change restarts the delay for everything pending.
+    // One shared debounce: any change restarts the delay for everything pending. Pruning happens
+    // inside the timer, not here, so an entry that briefly dips out of "ready" between renders
+    // (e.g. clearing a field to retype it) within the same window isn't forgotten and re-chimed.
     const timer = setTimeout(() => {
-      const { announced, added } = announceReady(announcedRef.current, ready);
-      if (added.length === 0) return;
+      const pruned = pruneAnnounced(announcedRef.current, ready);
+      const { announced, added } = announceReady(pruned, ready);
       announcedRef.current = announced;
-      onChimeRef.current();
+      if (added.length > 0) onChimeRef.current();
     }, CHIME_DELAY_MS);
 
     return () => clearTimeout(timer);

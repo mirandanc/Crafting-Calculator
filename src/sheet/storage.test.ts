@@ -96,4 +96,41 @@ describe('sheet storage', () => {
     );
     expect(loadSheet()?.prices).toEqual({ 'name:copper bar': { gold: 0, silver: 1, copper: 50 } });
   });
+
+  it('loads wanted and quantity below 1 as null rather than clamping them up', () => {
+    const block = { ...recipeBlock('r', 'Smelt Bronze', 1), wanted: 0 };
+    store(saved([block, { ...VALID_ROW, quantity: -5 }]));
+    expect(loadSheet()?.entries).toMatchObject([{ wanted: null }, { quantity: null }]);
+  });
+
+  it('rejects an entry with an empty id', () => {
+    store(saved([{ ...VALID_ROW, id: '' }, VALID_ROW]));
+    expect(loadSheet()?.entries.map((entry) => entry.id)).toEqual(['b']);
+  });
+
+  it('de-duplicates reagents by itemId within a recipe, keeping the first', () => {
+    const block = recipeBlock('r', 'Smelt Bronze', 1);
+    const reagents = block.recipe?.reagents ?? [];
+    const duplicated = [reagents[0], { ...reagents[0], perCraft: 99 }, reagents[1]];
+    store(saved([{ ...block, recipe: { ...block.recipe, reagents: duplicated } }]));
+    const loaded = loadSheet()?.entries[0];
+    const perCrafts = loaded?.kind === 'recipe' ? loaded.recipe?.reagents.map((reagent) => reagent.perCraft) : null;
+    expect(perCrafts).toEqual([1, 1]);
+  });
+
+  it('returns null when the saved root is null or an array', () => {
+    store(null);
+    expect(loadSheet()).toBeNull();
+    store([saved([VALID_ROW])]);
+    expect(loadSheet()).toBeNull();
+  });
+
+  it('treats NaN or negative coins as zero', () => {
+    store(
+      saved([VALID_ROW], {
+        'name:linen cloth': { gold: Number.NaN, silver: -5, copper: 10 },
+      }),
+    );
+    expect(loadSheet()?.prices).toEqual({ 'name:linen cloth': { gold: 0, silver: 0, copper: 10 } });
+  });
 });

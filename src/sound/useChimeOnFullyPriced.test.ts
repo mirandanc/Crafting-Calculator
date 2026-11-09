@@ -77,6 +77,27 @@ describe('useChimeOnFullyPriced', () => {
     expect(onChime).toHaveBeenCalledTimes(1);
   });
 
+  it('does not chime when priced, briefly unpriced, then priced again inside the same window', () => {
+    const { rerender, onChime } = setup(linen(), PRICED);
+    rerender({ entries: linen(), prices: {} });
+    wait(400);
+    rerender({ entries: linen(), prices: PRICED });
+    wait(800);
+    expect(onChime).not.toHaveBeenCalled();
+  });
+
+  it('calls the latest onChime callback, not the one from the first render', () => {
+    const firstOnChime = vi.fn();
+    const secondOnChime = vi.fn();
+    const { rerender } = renderHook((props: HookProps & { onChime: () => void }) => useChimeOnFullyPriced(props.entries, props.prices, props.onChime), {
+      initialProps: { entries: linen(), prices: {}, onChime: firstOnChime },
+    });
+    rerender({ entries: linen(), prices: PRICED, onChime: secondOnChime });
+    wait(800);
+    expect(firstOnChime).not.toHaveBeenCalled();
+    expect(secondOnChime).toHaveBeenCalledTimes(1);
+  });
+
   it('chimes once for two entries priced in the same window', () => {
     const both: Entry[] = [itemRow('a', 'Linen Cloth', 1), itemRow('b', 'Wool Cloth', 1)];
     const { rerender, onChime } = setup(both, {});
