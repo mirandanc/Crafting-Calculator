@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { toRoman } from '@/components/ItemCardEditor/toRoman';
+import { toRoman } from '@/components/EntryNumeral/toRoman';
 
 describe('toRoman', () => {
   it.each([

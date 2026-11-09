@@ -1,5 +1,5 @@
 import styles from '@/components/ItemCardEditor/ItemCardEditor.module.css';
-import { toRoman } from '@/components/ItemCardEditor/toRoman';
+import { toRoman } from '@/components/EntryNumeral/toRoman';
 import { MoneyInput } from '@/components/MoneyInput/MoneyInput';
 import { MAX_QUANTITY, parseQuantity, type ItemCard, type ItemCardPatch } from '@/recipe/recipe';
 

@@ -1,0 +1,27 @@
+.remove {
+  flex: none;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid rgba(125, 29, 16, 0.45);
+  background: transparent;
+  color: var(--color-rubric);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.remove:hover {
+  color: var(--color-paper-cream);
+  background: var(--color-rubric);
+}
+
+.normal {
+  width: 36px;
+  height: 36px;
+}
+
+.small {
+  width: 30px;
+  height: 30px;
+}
