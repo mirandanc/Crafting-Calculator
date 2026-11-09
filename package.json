@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "fetch:recipes": "node --env-file-if-exists=.env scripts/fetch-recipes.ts"
   },
   "repository": {
     "type": "git",
