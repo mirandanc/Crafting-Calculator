@@ -4,7 +4,10 @@
   "scripts": {
     "test": "vitest run",
     "dev": "vite",
-    "build": "tsc --noEmit && vite build",
+    "dev:worker": "wrangler dev",
+    "types": "wrangler types worker/worker-configuration.d.ts",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p worker",
+    "build": "npm run typecheck && vite build",
     "preview": "vite preview",
     "test:watch": "vitest",
     "fetch:recipes": "node --env-file-if-exists=.env scripts/fetch-recipes.ts"
@@ -39,6 +42,7 @@
     "jsdom": "^29.1.1",
     "typescript": "^7.0.2",
     "vite": "^8.3.6",
-    "vitest": "^5.1.0"
+    "vitest": "^5.1.0",
+    "wrangler": "^4.159.0"
   }
 }

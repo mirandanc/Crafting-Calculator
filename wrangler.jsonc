@@ -2,14 +2,23 @@
   "$schema": "node_modules/wrangler/config-schema.json",
   "name": "crafting-calculator",
   "compatibility_date": "2026-11-01",
+  // The Worker only answers /api/* (see assets.run_worker_first); everything else is the Vite build.
+  "main": "./worker/index.ts",
+  // Lets Wrangler's bundler resolve the @worker/ alias.
+  "tsconfig": "./worker/tsconfig.json",
   // Wrangler runs the Vite build itself, so deploys work even without a dashboard build command.
   "build": {
     "command": "npm run build"
   },
   // Required by `wrangler preview`, which Cloudflare runs for pull-request builds.
   "previews": {},
-  // Static site only: Cloudflare serves the Vite build output, no Worker script.
+  // Set in the dashboard (Production and Previews Base); deploys fail while it is missing.
+  "secrets": {
+    "required": ["FOREVERDB_API_KEY"]
+  },
   "assets": {
-    "directory": "./dist"
+    "directory": "./dist",
+    "binding": "ASSETS",
+    "run_worker_first": ["/api/*"]
   }
 }
