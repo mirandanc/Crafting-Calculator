@@ -20,7 +20,7 @@ WoW Forever crafting calculator: pick recipes and items, price them, and get a s
 
 Prices fill in from the WoW Forever auction house through Blizzard's Battle.net API: US, Alliance house 110.
 A GitHub Actions workflow (`.github/workflows/auction-prices.yml`) runs `scripts/fetch-auction-prices.ts` at
-00:00, 08:00 and 16:00 UTC. The script works out a market value per item (the average of the cheapest
+08:00 and 19:00 GMT-3 (11:00 and 22:00 UTC). The script works out a market value per item (the average of the cheapest
 listings covering 15% of what's for sale) and stores it in the Cloudflare KV namespace bound as
 `AUCTION_PRICES`. The Worker serves it at `/api/auction-prices`. A run that gets a broken or tiny answer stops
 without saving, so the page keeps the last good prices and shows their age at the bottom.
