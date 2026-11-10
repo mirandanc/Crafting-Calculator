@@ -14,9 +14,18 @@ describe('marketValue', () => {
     expect(marketValue(listings)).toBe(60);
   });
 
-  it('ignores a single cheap unit when the market is deep', () => {
+  it('a single cheap unit barely moves the value when the market is deep', () => {
     // 15% of 200 = 30. The 1 @ 1c doesn't reach it, so the 199 @ 100c listing is taken whole: 19 901 / 200 → 100.
     expect(marketValue([listing(1, 1, 1), listing(1, 100, 199)])).toBe(100);
+  });
+
+  it('stops exactly at the 15% boundary', () => {
+    // 15% of 100 = 15: the cheapest listing's quantity exactly reaches it, so only it is taken.
+    expect(marketValue([listing(1, 10, 15), listing(1, 100, 85)])).toBe(10);
+  });
+
+  it('throws on an empty list', () => {
+    expect(() => marketValue([])).toThrow('No listings to price');
   });
 
   it('rounds to whole copper', () => {
@@ -54,6 +63,28 @@ describe('unitListings', () => {
     expect(() => unitListings({ auctions: [{ id: 1, item: { id: 'x' }, buyout: 1, quantity: 1 }] }, { auctions: [] })).toThrow(
       'listing',
     );
+  });
+
+  it('rejects a house body that is not an object at all', () => {
+    expect(() => unitListings(null, { auctions: [] })).toThrow('auctions');
+  });
+
+  it('rejects an auction with a zero buyout', () => {
+    expect(() =>
+      unitListings({ auctions: [{ id: 1, item: { id: 6266 }, buyout: 0, quantity: 1 }] }, { auctions: [] }),
+    ).toThrow('buyout');
+  });
+
+  it('rejects a listing with a zero quantity', () => {
+    expect(() =>
+      unitListings({ auctions: [{ id: 1, item: { id: 6266 }, buyout: 10, quantity: 0 }] }, { auctions: [] }),
+    ).toThrow('listing');
+  });
+
+  it('rejects a commodity with a non-numeric unit_price', () => {
+    expect(() =>
+      unitListings({ auctions: [] }, { auctions: [{ id: 1, item: { id: 2840 }, quantity: 1, unit_price: '1' }] }),
+    ).toThrow('unit_price');
   });
 });
 

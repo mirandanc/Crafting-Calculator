@@ -36,12 +36,17 @@ function listingsOf(body: unknown, name: string, required: boolean): unknown[] {
   return body.auctions;
 }
 
-function itemIdOf(raw: UnknownRecord): number {
+type ListingBase = {
+  itemId: number;
+  quantity: number;
+};
+
+function listingBase(raw: UnknownRecord): ListingBase {
   const item = raw.item;
   if (!isRecord(item) || !isPositiveInteger(item.id) || !isPositiveInteger(raw.quantity)) {
     throw new Error(`Unexpected listing: ${JSON.stringify(raw).slice(0, 200)}`);
   }
-  return item.id;
+  return { itemId: item.id, quantity: raw.quantity };
 }
 
 /**
@@ -54,23 +59,23 @@ export function unitListings(house: unknown, commodities: unknown): Listing[] {
   const listings: Listing[] = [];
   for (const raw of listingsOf(house, 'auctions', false)) {
     if (!isRecord(raw)) throw new Error('Unexpected listing in auctions');
-    const itemId = itemIdOf(raw);
+    const { itemId, quantity } = listingBase(raw);
     if (raw.buyout === undefined) continue;
     if (!isPositiveInteger(raw.buyout)) throw new Error(`Unexpected listing buyout for item ${itemId}`);
-    const quantity = raw.quantity as number;
     listings.push({ itemId, unitPrice: raw.buyout / quantity, quantity });
   }
   for (const raw of listingsOf(commodities, 'commodities', true)) {
     if (!isRecord(raw)) throw new Error('Unexpected listing in commodities');
-    const itemId = itemIdOf(raw);
+    const { itemId, quantity } = listingBase(raw);
     if (!isPositiveInteger(raw.unit_price)) throw new Error(`Unexpected listing unit_price for item ${itemId}`);
-    listings.push({ itemId, unitPrice: raw.unit_price, quantity: raw.quantity as number });
+    listings.push({ itemId, unitPrice: raw.unit_price, quantity });
   }
   return listings;
 }
 
 /** Quantity-weighted average of the cheapest listings that reach MARKET_SHARE of the quantity for sale. */
 export function marketValue(listings: Listing[]): number {
+  if (listings.length === 0) throw new Error('No listings to price');
   const sorted = [...listings].sort((a, b) => a.unitPrice - b.unitPrice);
   const total = sorted.reduce((sum, listing) => sum + listing.quantity, 0);
   const target = total * MARKET_SHARE;
