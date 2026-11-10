@@ -12,10 +12,9 @@
   },
   // Required by `wrangler preview`, which Cloudflare runs for pull-request builds.
   "previews": {},
-  // Set in the dashboard (Production and Previews Base); deploys fail while it is missing.
-  "secrets": {
-    "required": ["FOREVERDB_API_KEY"]
-  },
+  // FOREVERDB_API_KEY is a secret set in the dashboard (Production and Previews Base). It is not listed under
+  // secrets.required: that makes deploys fail while it is missing, and Cloudflare only accepts the secret once a
+  // deploy with Worker code exists.
   "assets": {
     "directory": "./dist",
     "binding": "ASSETS",
