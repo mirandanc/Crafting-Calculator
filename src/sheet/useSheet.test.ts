@@ -47,6 +47,29 @@ describe('useSheet', () => {
     expect(result.current.sheet.prices['name:copper bar']).toEqual({ gold: 0, silver: 1, copper: 50 });
   });
 
+  it('forgets a typed price once it is left empty, so the auction price can show again', () => {
+    const { result } = renderHook(() => useSheet());
+    act(() => result.current.actions.setPrice('name:copper bar', { gold: 0, silver: 0, copper: 0 }));
+    expect(result.current.sheet.prices).toHaveProperty(['name:copper bar']);
+    act(() => result.current.actions.normalizePrice('name:copper bar'));
+    expect(result.current.sheet.prices).not.toHaveProperty(['name:copper bar']);
+  });
+
+  it('clears a typed price and leaves the others', () => {
+    const { result } = renderHook(() => useSheet());
+    act(() => result.current.actions.setPrice('name:copper bar', { gold: 0, silver: 1, copper: 0 }));
+    act(() => result.current.actions.setPrice('name:tin bar', { gold: 0, silver: 2, copper: 0 }));
+    act(() => result.current.actions.clearPrice('name:copper bar'));
+    expect(result.current.sheet.prices).toEqual({ 'name:tin bar': { gold: 0, silver: 2, copper: 0 } });
+  });
+
+  it('keeps the same sheet when clearing a price that is not typed', () => {
+    const { result } = renderHook(() => useSheet());
+    const before = result.current.sheet;
+    act(() => result.current.actions.clearPrice('name:copper bar'));
+    expect(result.current.sheet).toBe(before);
+  });
+
   it('unlinks an item row when its name is typed', () => {
     const { result } = renderHook(() => useSheet());
     act(() => result.current.actions.addItem());

@@ -12,11 +12,14 @@ import {
   type Sheet,
 } from '@/sheet/sheet';
 
-type SavedSheet = Sheet & { version: 2 };
+type SavedSheet = Sheet & { version: 3 };
 
 type UnknownRecord = Record<string, unknown>;
 
-export const STORAGE_KEY = 'crafting-calculator:v2';
+export const STORAGE_KEY = 'crafting-calculator:v3';
+
+/** Version 2 kept prices typed before auction prices existed; its entries are kept and its prices dropped once. */
+const PREVIOUS_STORAGE_KEY = 'crafting-calculator:v2';
 
 /** Older formats are dropped on load, not migrated. */
 const LEGACY_STORAGE_KEYS: string[] = ['crafting-calculator:v1'];
@@ -143,16 +146,30 @@ function parsePrices(value: unknown): Prices {
   return prices;
 }
 
+/** The record saved under key if it has this version; corrupted JSON counts as nothing saved. */
+function readSaved(key: string, version: number): UnknownRecord | null {
+  const raw = localStorage.getItem(key);
+  if (raw === null) return null;
+  try {
+    const saved: unknown = JSON.parse(raw);
+    return isRecord(saved) && saved.version === version ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
 export function loadSheet(): Sheet | null {
   try {
     for (const key of LEGACY_STORAGE_KEYS) localStorage.removeItem(key);
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw === null) return null;
-    const saved: unknown = JSON.parse(raw);
-    if (!isRecord(saved) || saved.version !== 2) return null;
+    const current = readSaved(STORAGE_KEY, 3);
+    const previous = current === null ? readSaved(PREVIOUS_STORAGE_KEY, 2) : null;
+    // Read once, then gone: the next save writes version 3.
+    localStorage.removeItem(PREVIOUS_STORAGE_KEY);
+    const saved = current ?? previous;
+    if (saved === null) return null;
     const entries = parseEntries(saved.entries);
     if (entries === null) return null;
-    return { entries, prices: parsePrices(saved.prices), muted: saved.muted === true };
+    return { entries, prices: current === null ? {} : parsePrices(saved.prices), muted: saved.muted === true };
   } catch {
     return null;
   }
@@ -160,7 +177,7 @@ export function loadSheet(): Sheet | null {
 
 export function saveSheet(sheet: Sheet): void {
   try {
-    const saved: SavedSheet = { ...sheet, version: 2 };
+    const saved: SavedSheet = { ...sheet, version: 3 };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
   } catch {
     // Storage blocked or full: the page keeps working, it just won't remember.

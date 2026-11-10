@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { coinsEqual, normalizeCoins, type Coins } from '@/money/money';
+import { coinsEqual, normalizeCoins, toCopper, type Coins } from '@/money/money';
 import type { CatalogItem, CatalogRecipe } from '@/recipes/catalog';
 import {
   createDefaultSheet,
@@ -13,6 +13,7 @@ import {
   type Entry,
   type ItemRow,
   type LinkedItem,
+  type Prices,
   type RecipeBlock,
   type Sheet,
 } from '@/sheet/sheet';
@@ -31,6 +32,8 @@ export type SheetActions = {
   setItemQuantity: (id: string, quantity: number | null) => void;
   setPrice: (key: string, price: Coins) => void;
   normalizePrice: (key: string) => void;
+  /** Drops the typed price, so the item falls back to its auction price (if any). */
+  clearPrice: (key: string) => void;
   setMuted: (muted: boolean) => void;
 };
 
@@ -38,6 +41,10 @@ export type SheetState = {
   sheet: Sheet;
   actions: SheetActions;
 };
+
+function withoutPrice(prices: Prices, key: string): Prices {
+  return Object.fromEntries(Object.entries(prices).filter(([candidate]) => candidate !== key));
+}
 
 export function useSheet(): SheetState {
   const [sheet, setSheet] = useState<Sheet>(() => loadSheet() ?? createDefaultSheet());
@@ -83,9 +90,13 @@ export function useSheet(): SheetState {
         setSheet((current) => {
           const price: Coins | undefined = current.prices[key];
           if (price === undefined) return current;
+          // Left empty: the typed price goes away (an auction price, if any, shows again).
+          if (toCopper(price) === 0) return { ...current, prices: withoutPrice(current.prices, key) };
           const normalized = normalizeCoins(price);
           return coinsEqual(normalized, price) ? current : { ...current, prices: { ...current.prices, [key]: normalized } };
         }),
+      clearPrice: (key) =>
+        setSheet((current) => (Object.hasOwn(current.prices, key) ? { ...current, prices: withoutPrice(current.prices, key) } : current)),
       setMuted: (muted) => setSheet((current) => ({ ...current, muted })),
     };
   }, []);

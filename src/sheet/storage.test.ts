@@ -9,7 +9,7 @@ const store = (value: unknown): void => {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(value));
 };
 
-const saved = (entries: unknown, prices: unknown = {}): SavedShape => ({ version: 2, entries, prices, muted: false });
+const saved = (entries: unknown, prices: unknown = {}): SavedShape => ({ version: 3, entries, prices, muted: false });
 
 const VALID_ROW: SavedShape = { kind: 'item', id: 'b', name: 'Linen Cloth', itemId: null, icon: null, quantity: 1 };
 
@@ -41,10 +41,51 @@ describe('sheet storage', () => {
     expect(localStorage.getItem('crafting-calculator:v1')).toBeNull();
   });
 
+  it('keeps the entries of version 2 data but drops its prices once, then removes it', () => {
+    localStorage.setItem(
+      'crafting-calculator:v2',
+      JSON.stringify({ version: 2, entries: [VALID_ROW], prices: { 'name:linen cloth': coins(125) }, muted: true }),
+    );
+    expect(loadSheet()).toEqual({ entries: [itemRow('b', 'Linen Cloth', 1)], prices: {}, muted: true });
+    expect(localStorage.getItem('crafting-calculator:v2')).toBeNull();
+  });
+
+  it('prefers version 3 data over leftover version 2 data, and removes the leftover', () => {
+    localStorage.setItem('crafting-calculator:v2', JSON.stringify({ version: 2, entries: [VALID_ROW], prices: {}, muted: false }));
+    store(saved([{ ...VALID_ROW, name: 'Wool Cloth' }], { 'name:wool cloth': coins(40) }));
+    const sheet = loadSheet();
+    expect(sheet?.entries[0]).toMatchObject({ name: 'Wool Cloth' });
+    expect(sheet?.prices).toEqual({ 'name:wool cloth': coins(40) });
+    expect(localStorage.getItem('crafting-calculator:v2')).toBeNull();
+  });
+
+  it('removes version 2 data even when it is corrupted, empty or of another version', () => {
+    const leftovers: string[] = ['{not json', JSON.stringify({ version: 2, entries: [], prices: {} }), JSON.stringify({ version: 1 })];
+    for (const raw of leftovers) {
+      localStorage.setItem('crafting-calculator:v2', raw);
+      expect(loadSheet()).toBeNull();
+      expect(localStorage.getItem('crafting-calculator:v2')).toBeNull();
+    }
+  });
+
+  it('discards version 1 data and migrates version 2 data found alongside it', () => {
+    localStorage.setItem('crafting-calculator:v1', JSON.stringify({ version: 1, title: 'Old', cards: [], muted: false }));
+    localStorage.setItem('crafting-calculator:v2', JSON.stringify({ version: 2, entries: [VALID_ROW], prices: {}, muted: false }));
+    expect(loadSheet()?.entries.map((entry) => entry.id)).toEqual(['b']);
+    expect(localStorage.getItem('crafting-calculator:v1')).toBeNull();
+    expect(localStorage.getItem('crafting-calculator:v2')).toBeNull();
+  });
+
+  it('saves under the version 3 key', () => {
+    saveSheet({ entries: [itemRow('b', 'Linen Cloth', 1)], prices: {}, muted: false });
+    expect(STORAGE_KEY).toBe('crafting-calculator:v3');
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')).toMatchObject({ version: 3 });
+  });
+
   it('returns null for corrupted data, another version, or no entries', () => {
     localStorage.setItem(STORAGE_KEY, '{not json');
     expect(loadSheet()).toBeNull();
-    store({ ...saved([VALID_ROW]), version: 3 });
+    store({ ...saved([VALID_ROW]), version: 2 });
     expect(loadSheet()).toBeNull();
     store(saved([]));
     expect(loadSheet()).toBeNull();

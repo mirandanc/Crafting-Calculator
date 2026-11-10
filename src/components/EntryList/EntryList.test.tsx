@@ -26,6 +26,7 @@ function Harness({ initialEntries }: HarnessProps) {
     setItemQuantity: () => {},
     setPrice: () => {},
     normalizePrice: () => {},
+    clearPrice: () => {},
     setMuted: () => {},
   };
   return <EntryList entries={entries} prices={{}} catalog={null} actions={actions} onReachable={() => {}} />;
