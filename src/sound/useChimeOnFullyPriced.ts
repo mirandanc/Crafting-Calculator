@@ -18,7 +18,8 @@ const CHIME_DELAY_MS = 800;
 /**
  * Calls `onChime` once, 800 ms after the last change, when an entry has newly become fully priced by
  * the player's own typing. Entries priced by the auction alone, or completed by auction data arriving,
- * are marked as announced silently.
+ * are marked as announced silently. A typed completion inside the same window as auction data arriving
+ * is also silent.
  */
 export function useChimeOnFullyPriced({ entries, prices, typedPrices, auctionStamp }: ChimeInputs, onChime: () => void): void {
   const [initiallyReady] = useState(() => fullyPricedEntryIds(entries, prices));

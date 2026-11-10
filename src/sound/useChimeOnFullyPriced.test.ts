@@ -2,7 +2,7 @@ import { act, renderHook } from '@testing-library/react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Entry, Prices } from '@/sheet/sheet';
 import { useChimeOnFullyPriced } from '@/sound/useChimeOnFullyPriced';
-import { coins, itemRow } from '@/test/sheetFixtures';
+import { coins, itemRow, recipeBlock } from '@/test/sheetFixtures';
 
 type HookProps = {
   entries: Entry[];
@@ -138,11 +138,36 @@ describe('useChimeOnFullyPriced', () => {
   });
 
   it('chimes when a typed price completes an entry the auction partly priced', () => {
-    const entries: Entry[] = [itemRow('a', 'Linen Cloth', 2)];
-    const { rerender, onChime } = setup(entries, {}, {}, 'a');
-    rerender({ entries, prices: PRICED, typed: { 'name:linen cloth': coins(25) }, auctionStamp: 'a' });
+    const entries: Entry[] = [recipeBlock('r', 'Smelt Bronze', 1)];
+    const auctionOnly: Prices = { 'name:copper bar': coins(10) };
+    const typed: Prices = { 'name:tin bar': coins(5) };
+    const { rerender, onChime } = setup(entries, auctionOnly, {}, 'a');
+    rerender({ entries, prices: { ...auctionOnly, ...typed }, typed, auctionStamp: 'a' });
     wait(800);
     expect(onChime).toHaveBeenCalledTimes(1);
+  });
+
+  it('chimes again for a typed price after a window in which the auction prices arrived', () => {
+    const typed: Prices = { 'name:linen cloth': coins(25) };
+    const stamp = '2026-11-10T16:00:00.000Z';
+    const { rerender, onChime } = setup(linen(), {}, {}, null);
+    rerender({ entries: linen(), prices: PRICED, typed, auctionStamp: stamp });
+    wait(800);
+    rerender({ entries: linen(), prices: {}, typed: {}, auctionStamp: stamp });
+    wait(800);
+    rerender({ entries: linen(), prices: PRICED, typed, auctionStamp: stamp });
+    wait(800);
+    expect(onChime).toHaveBeenCalledTimes(1);
+  });
+
+  it('stays silent when the player completes an entry and the auction prices change inside the same window', () => {
+    const typed: Prices = { 'name:linen cloth': coins(25) };
+    const { rerender, onChime } = setup(linen(), {}, {}, 'a');
+    rerender({ entries: linen(), prices: PRICED, typed, auctionStamp: 'a' });
+    wait(300);
+    rerender({ entries: linen(), prices: PRICED, typed, auctionStamp: 'b' });
+    wait(800);
+    expect(onChime).not.toHaveBeenCalled();
   });
 
   it('cancels a pending chime on unmount', () => {
