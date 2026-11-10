@@ -1,0 +1,9 @@
+.numeral {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-family: var(--font-numeral);
+  font-weight: 700;
+  font-size: 17px;
+  color: var(--color-rubric);
+}

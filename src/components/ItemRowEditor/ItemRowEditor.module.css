@@ -1,0 +1,80 @@
+.row {
+  display: grid;
+  grid-template-columns: 40px minmax(0, 1fr) 36px;
+  align-items: center;
+  gap: 10px 12px;
+  padding: 14px 0 16px;
+  border-bottom: 1px dashed rgba(107, 60, 20, 0.32);
+  animation: ink-in 0.55s ease both;
+}
+
+.name {
+  width: 100%;
+  padding: 2px 2px 4px;
+  font-size: 23px;
+  color: var(--color-ink);
+}
+
+.details {
+  grid-column: 2 / 3;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 22px;
+  font-size: 16px;
+  color: var(--color-ink-soft);
+}
+
+.quantity {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+}
+
+.caption {
+  font-family: var(--font-caps);
+  letter-spacing: 0.05em;
+}
+
+.quantityInput {
+  width: 52px;
+  padding: 2px 2px 3px;
+  font-size: 21px;
+  text-align: center;
+  color: var(--color-ink);
+}
+
+.invalid {
+  border-bottom-color: var(--color-ribbon);
+  box-shadow: 0 1px 0 var(--color-ribbon);
+  background: rgba(168, 36, 26, 0.1);
+}
+
+@keyframes ink-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .row {
+    animation: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .row {
+    grid-template-columns: 30px minmax(0, 1fr) 36px;
+  }
+
+  .details {
+    grid-column: 1 / -1;
+  }
+}

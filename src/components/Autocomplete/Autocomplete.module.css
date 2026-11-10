@@ -1,0 +1,57 @@
+.autocomplete {
+  position: relative;
+  min-width: 0;
+}
+
+.listbox {
+  position: absolute;
+  z-index: 20;
+  top: calc(100% + 4px);
+  left: 0;
+  right: 0;
+  /* 8 options at 44px (border-box) + 8px vertical padding + 2px border = 362px, so all 8 fit unscrolled. */
+  max-height: 362px;
+  overflow-y: auto;
+  margin: 0;
+  padding: 4px 0;
+  list-style: none;
+  border: 1px solid var(--color-sepia);
+  border-radius: 4px;
+  background: var(--color-parchment-left);
+  box-shadow: 0 10px 24px rgba(43, 26, 14, 0.35);
+}
+
+.listbox[hidden] {
+  display: none;
+}
+
+.option {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding: 6px 12px;
+  font-size: 19px;
+  color: var(--color-ink);
+}
+
+/* The active option gets the rubric highlight; JS sets it on hover too, so there's one at a time. */
+.option[aria-selected='true'] {
+  background: rgba(125, 29, 16, 0.12);
+  box-shadow: inset 3px 0 0 var(--color-rubric);
+}
+
+.label {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.detail {
+  margin-left: auto;
+  padding-left: 8px;
+  font-family: var(--font-caps);
+  font-size: 14px;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-soft);
+  white-space: nowrap;
+}

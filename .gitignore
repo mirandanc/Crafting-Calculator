@@ -3,3 +3,11 @@ dist/
 coverage/
 *.local
 .vite/
+
+# Local secrets: never commit. .env.example is the template.
+.env*
+!.env.example
+.dev.vars*
+
+# Wrangler state
+.wrangler/

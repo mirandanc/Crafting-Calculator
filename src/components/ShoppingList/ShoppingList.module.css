@@ -1,0 +1,182 @@
+.lines {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.line {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 21px;
+  line-height: 1.3;
+  animation: ink-in 0.55s ease both;
+}
+
+.iconGap {
+  flex: none;
+  width: 22px;
+}
+
+.what {
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+  max-width: 48%;
+}
+
+.name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--color-ink);
+}
+
+/* Which recipes need the item: small italics under its name. */
+.sources {
+  font-size: 15px;
+  font-style: italic;
+  line-height: 1.2;
+  color: var(--color-ink-soft);
+  overflow-wrap: anywhere;
+}
+
+.leader {
+  flex: 1;
+  min-width: 16px;
+  border-bottom: 2px dotted rgba(94, 64, 38, 0.45);
+}
+
+.math {
+  display: flex;
+  align-items: baseline;
+  gap: 5px;
+  white-space: nowrap;
+  font-size: 17px;
+  color: var(--color-ink-soft);
+}
+
+.amount {
+  display: flex;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 8px;
+  min-width: 96px;
+  white-space: nowrap;
+  font-weight: 700;
+  color: var(--color-ink);
+}
+
+.unpriced {
+  font-size: 17px;
+  font-style: italic;
+  font-weight: 400;
+  color: var(--color-ink-soft);
+}
+
+.empty {
+  margin: 0;
+  font-size: 22px;
+  font-style: italic;
+  color: var(--color-ink-soft);
+  text-align: center;
+}
+
+.divider {
+  display: flex;
+  justify-content: center;
+  margin-top: 6px;
+  color: var(--color-sepia);
+}
+
+.divider svg {
+  max-width: 100%;
+}
+
+.diamond {
+  fill: var(--color-rubric);
+}
+
+.totalLabel {
+  font-family: var(--font-caps);
+  font-size: 19px;
+  letter-spacing: 0.12em;
+  color: var(--color-rubric);
+  text-align: right;
+}
+
+.totals {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 6px;
+}
+
+.total {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: flex-end;
+  gap: 4px 18px;
+  font-family: var(--font-numeral);
+  font-weight: 700;
+  font-size: 50px;
+  line-height: 1;
+  color: var(--color-ink);
+}
+
+.unpricedNote {
+  margin: 0;
+  font-size: 18px;
+  font-style: italic;
+  color: var(--color-rubric);
+}
+
+@keyframes ink-in {
+  from {
+    opacity: 0;
+    filter: blur(3px);
+    transform: translateY(5px);
+  }
+  to {
+    opacity: 1;
+    filter: none;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .line {
+    animation: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .line {
+    flex-wrap: wrap;
+  }
+
+  .what {
+    flex: 1 1 calc(100% - 32px);
+    max-width: calc(100% - 32px);
+  }
+
+  .name {
+    white-space: normal;
+  }
+
+  .math {
+    flex-wrap: wrap;
+  }
+
+  .amount {
+    min-width: 0;
+  }
+
+  .total {
+    font-size: 40px;
+  }
+}

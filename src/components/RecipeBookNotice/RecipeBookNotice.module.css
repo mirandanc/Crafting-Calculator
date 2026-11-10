@@ -1,0 +1,13 @@
+.notice {
+  margin: -8px 0 0;
+  font-size: 16px;
+  font-style: italic;
+  color: var(--color-ink-soft);
+  text-align: center;
+}
+
+/* Empty: out of the page flow (no gap in the page's column), but still in the accessibility tree. */
+.notice:empty {
+  position: absolute;
+  margin: 0;
+}

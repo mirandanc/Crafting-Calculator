@@ -1,7 +1,8 @@
+import { useId } from 'react';
+
 import { Coin } from '@/components/Coin/Coin';
 import styles from '@/components/MoneyInput/MoneyInput.module.css';
-import type { Coins } from '@/money/money';
-import { parseCoin } from '@/recipe/recipe';
+import { parseCoin, type Coins } from '@/money/money';
 
 type CoinField = {
   key: keyof Coins;
@@ -14,14 +15,20 @@ type MoneyInputProps = {
   value: Coins;
   onChange: (value: Coins) => void;
   onBlur: () => void;
+  /** When set, the fields are disabled and this explains why (as a visible hint the group points to). */
+  disabledReason?: string;
 };
 
 const COIN_FIELDS: CoinField[] = [{ key: 'gold' }, { key: 'silver', max: 99 }, { key: 'copper', max: 99 }];
 
-export function MoneyInput({ label, caption, value, onChange, onBlur }: MoneyInputProps) {
+export function MoneyInput({ label, caption, value, onChange, onBlur, disabledReason }: MoneyInputProps) {
+  const hintId = useId();
+
   return (
     <fieldset
       className={styles.money}
+      disabled={disabledReason !== undefined}
+      aria-describedby={disabledReason === undefined ? undefined : hintId}
       onBlur={(event) => {
         if (!event.currentTarget.contains(event.relatedTarget)) onBlur();
       }}
@@ -46,6 +53,11 @@ export function MoneyInput({ label, caption, value, onChange, onBlur }: MoneyInp
           <Coin denomination={field.key} />
         </label>
       ))}
+      {disabledReason !== undefined && (
+        <span id={hintId} className={styles.hint}>
+          {disabledReason}
+        </span>
+      )}
     </fieldset>
   );
 }
