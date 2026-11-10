@@ -22,6 +22,7 @@ describe('useAuctionPrices', () => {
     expect(result.current).toEqual({ list: null, failed: false });
     await waitFor(() => expect(result.current.list).toEqual(LIST));
     expect(fetchMock).toHaveBeenCalledWith('/api/auction-prices');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
   });
 
   it('reports a failure for an error answer or an invalid body', async () => {

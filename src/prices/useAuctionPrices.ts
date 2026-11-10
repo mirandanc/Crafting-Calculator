@@ -11,7 +11,7 @@ async function fetchAuctionPrices(): Promise<AuctionPriceList> {
   return list;
 }
 
-/** Loads the auction price list once per page; on failure the page keeps working with typed prices only. */
+/** Loads the auction price list once per mount; on failure the page keeps working with typed prices only. */
 export function useAuctionPrices(): AuctionPricesState {
   const [state, setState] = useState<AuctionPricesState>(LOADING);
 
