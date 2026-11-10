@@ -157,8 +157,12 @@ describe('createBlizzardClient', () => {
   });
 
   it('fails clearly when the token is refused', async () => {
-    const client = createBlizzardClient('id', 'bad', deps([new Response('', { status: 401 })]));
-    await expect(client.get('/data/wow/ruleset/1/auctions/110')).rejects.toThrow('Blizzard token request failed: 401');
+    const client = createBlizzardClient('id', 'bad-secret', deps([new Response('', { status: 401 })]));
+    const error = await client.get('/data/wow/ruleset/1/auctions/110').catch((reason: unknown) => reason);
+    expect(error).toBeInstanceOf(Error);
+    const message = (error as Error).message;
+    expect(message).toContain('Blizzard token request failed: 401');
+    expect(message).not.toContain('bad-secret');
   });
 
   it('fails clearly when the token answer has no access token', async () => {
@@ -167,7 +171,12 @@ describe('createBlizzardClient', () => {
   });
 
   it('fails clearly when the API answers an error', async () => {
-    const d = deps([Response.json({ access_token: 'tok' }), new Response('', { status: 503 })]);
-    await expect(createBlizzardClient('id', 'secret', d).get('/x')).rejects.toThrow('/x answered 503');
+    const d = deps([Response.json({ access_token: 'secret-token' }), new Response('', { status: 503 })]);
+    const error = await createBlizzardClient('id', 'the-secret', d).get('/x').catch((reason: unknown) => reason);
+    expect(error).toBeInstanceOf(Error);
+    const message = (error as Error).message;
+    expect(message).toContain('/x answered 503');
+    expect(message).not.toContain('the-secret');
+    expect(message).not.toContain('secret-token');
   });
 });

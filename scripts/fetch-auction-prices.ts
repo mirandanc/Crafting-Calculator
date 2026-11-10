@@ -53,6 +53,8 @@ const API = 'https://us.api.blizzard.com';
 const QUERY = 'namespace=dynamic-forever-us&locale=en_US';
 /** House 110 lists about 5 000 distinct items; far fewer means a broken or partial answer. */
 const MIN_ITEMS = 500;
+/** A stalled Blizzard answer fails after this long instead of eating the workflow's time budget. */
+const REQUEST_TIMEOUT_MS = 60_000;
 /** Relative to the working directory, which is the repo root under npm scripts and the workflow. */
 const OUTPUT_FILE = resolve('auction-prices.json');
 
@@ -143,6 +145,7 @@ export function createBlizzardClient(clientId: string, clientSecret: string, dep
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: 'grant_type=client_credentials',
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
     });
     if (!response.ok) throw new Error(`Blizzard token request failed: ${response.status}`);
     const body: unknown = await response.json();
@@ -155,7 +158,10 @@ export function createBlizzardClient(clientId: string, clientSecret: string, dep
   return {
     async get(path) {
       token ??= requestToken();
-      const response = await deps.fetch(`${API}${path}?${QUERY}`, { headers: { Authorization: `Bearer ${await token}` } });
+      const response = await deps.fetch(`${API}${path}?${QUERY}`, {
+        headers: { Authorization: `Bearer ${await token}` },
+        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      });
       if (!response.ok) throw new Error(`${path} answered ${response.status}`);
       return response.json();
     },
