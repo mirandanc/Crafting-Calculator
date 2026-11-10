@@ -37,14 +37,23 @@
   width: 40px;
 }
 
-/* Disabled until the row has a name: faded, and the tooltip on the group says why. */
+/* Disabled until the row has a name: the coins fade and a visible hint says why. */
 .money:disabled {
-  opacity: 0.45;
   cursor: not-allowed;
+}
+
+.money:disabled .caption,
+.money:disabled .coin {
+  opacity: 0.45;
 }
 
 .money:disabled .input {
   cursor: not-allowed;
+}
+
+.hint {
+  font-size: 15px;
+  font-style: italic;
 }
 
 @media (max-width: 520px) {

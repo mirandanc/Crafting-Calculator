@@ -47,9 +47,11 @@ describe('ItemRowEditor', () => {
     for (const coin of ['gold', 'silver', 'copper']) {
       expect(screen.getByLabelText(`Unit price ${coin}`)).toBeDisabled();
     }
+    expect(screen.getByRole('group', { name: 'Unit price' })).toHaveAccessibleDescription('Name the item first');
     unmount();
     renderRow({ ...createItemRow(), name: 'Linen Cloth' });
     expect(screen.getByLabelText('Unit price copper')).toBeEnabled();
+    expect(screen.queryByText('Name the item first')).not.toBeInTheDocument();
   });
 
   it('invites a search in the name field', () => {
