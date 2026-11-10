@@ -11,6 +11,7 @@ import { Ribbon } from '@/components/Ribbon/Ribbon';
 import { ShoppingList } from '@/components/ShoppingList/ShoppingList';
 import { auctionPricesByKey, auctionStatusOf, withAuctionPrices, type AuctionPricesByKey } from '@/prices/auctionPrices';
 import { useAuctionPrices } from '@/prices/useAuctionPrices';
+import { useNow } from '@/prices/useNow';
 import { useRecipeCatalog } from '@/recipes/useRecipeCatalog';
 import { summarizeShopping } from '@/sheet/shopping';
 import { useSheet } from '@/sheet/useSheet';
@@ -19,6 +20,9 @@ import { useCoinSound } from '@/sound/useCoinSound';
 
 /** Until the auction price list arrives (or when it fails), only typed prices count. */
 const NO_AUCTION_PRICES: AuctionPricesByKey = {};
+
+/** How often the footer's "updated … ago" line is refreshed. */
+const STATUS_REFRESH_MS = 60_000;
 
 export function App() {
   const { sheet, actions } = useSheet();
@@ -38,7 +42,8 @@ export function App() {
   const [connectionLost, setConnectionLost] = useState(false);
   const handleReachable = useCallback((reachable: boolean) => setConnectionLost(!reachable), []);
   const summary = useMemo(() => summarizeShopping(sheet.entries, prices), [sheet.entries, prices]);
-  const auctionStatus = auctionStatusOf(auction, Date.now());
+  const now = useNow(STATUS_REFRESH_MS);
+  const auctionStatus = auctionStatusOf(auction, now);
 
   return (
     <div className={styles.page}>

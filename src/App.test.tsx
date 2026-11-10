@@ -40,7 +40,10 @@ const AUCTION: AuctionPriceList = {
 const CONNECTION_LOST = 'Lost touch with ForeverDB. Item search will try again as you type.';
 const RECIPE_BOOK_FAILED = 'The recipe book could not be opened. Recipe search is unavailable.';
 
-const jsonResponse = (body: unknown): Response => new Response(JSON.stringify(body));
+const AUCTION_PRICES_FAILED = 'Failed to load auction prices';
+const RECIPE_CATALOG_FAILED = 'Failed to load the recipe catalog';
+
+const jsonResponse =(body: unknown): Response => new Response(JSON.stringify(body));
 
 const renderApp = async (): Promise<RenderedApp> => {
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
@@ -86,6 +89,13 @@ const advance = (ms: number) =>
 
 const waitForChime = () => advance(800);
 
+// The live region that holds the shopping list's "Total cost" label and amount.
+const totalCost = (list: HTMLElement): HTMLElement => {
+  const total = within(list).getByText('Total cost').parentElement;
+  if (total === null) throw new Error('Total cost has no container');
+  return total;
+};
+
 describe('App', () => {
   let play: MockInstance<HTMLMediaElement['play']>;
   let fetchMock: Mock<typeof fetch>;
@@ -93,6 +103,8 @@ describe('App', () => {
   let answerRecipes: Mock<() => Promise<Response>>;
   let answerAuctionPrices: Mock<() => Promise<Response>>;
   let consoleError: MockInstance<typeof console.error>;
+  /** First arguments of the console.error calls a test expects; any other error still reaches the console. */
+  let expectedErrors: string[];
 
   beforeEach(() => {
     localStorage.clear();
@@ -105,7 +117,12 @@ describe('App', () => {
     answerRecipes = vi.fn(async () => jsonResponse(TEST_CATALOG));
     answerAuctionPrices = vi.fn(async () => new Response('', { status: 503 }));
     // Auction prices are unavailable by default, and the hook logs that failure.
-    consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined);
+    expectedErrors = [AUCTION_PRICES_FAILED];
+    const originalError = console.error;
+    consoleError = vi.spyOn(console, 'error').mockImplementation((...args: unknown[]) => {
+      if (typeof args[0] === 'string' && expectedErrors.includes(args[0])) return;
+      originalError(...args);
+    });
     fetchMock = vi.fn<typeof fetch>(async (input) => {
       const url = String(input);
       if (url === recipesUrl) return answerRecipes();
@@ -281,6 +298,7 @@ describe('App', () => {
 
   it('says when the recipe book cannot be opened, and stays quiet while it loads', async () => {
     let failCatalog: () => void = () => undefined;
+    expectedErrors.push(RECIPE_CATALOG_FAILED);
     answerRecipes.mockImplementationOnce(
       () =>
         new Promise<Response>((resolve) => {
@@ -297,7 +315,7 @@ describe('App', () => {
     expect(screen.queryByText(RECIPE_BOOK_FAILED)).toBeNull();
     failCatalog();
     expect(await screen.findByText(RECIPE_BOOK_FAILED)).toBeInTheDocument();
-    expect(consoleError).toHaveBeenCalledWith('Failed to load the recipe catalog', expect.anything());
+    expect(consoleError).toHaveBeenCalledWith(RECIPE_CATALOG_FAILED, expect.anything());
   });
 
   it('rolls copper up into silver when the price field loses focus', async () => {
@@ -458,6 +476,7 @@ describe('App', () => {
     expect(screen.getByLabelText('Copper Bar price copper')).toHaveValue(13);
     expect(screen.getByLabelText('Tin Bar price silver')).toHaveValue(2);
     expect(within(list()).queryByText(/unpriced/)).toBeNull();
+    expect(within(totalCost(list())).getByText('3s 63c')).toBeInTheDocument();
     await waitForChime();
     expect(play).not.toHaveBeenCalled();
     expect(screen.getByText('Auction prices updated 5 h ago · US Alliance')).toBeInTheDocument();
@@ -465,7 +484,7 @@ describe('App', () => {
 
   it('lets a typed price win and brings the auction price back with ↺', async () => {
     answerAuctionPrices.mockImplementation(async () => jsonResponse(AUCTION));
-    const { user } = await renderApp();
+    const { user, list } = await renderApp();
     await pickRecipe(user, 1, 'smelt', /Smelt Bronze/);
     const copper = screen.getByLabelText('Copper Bar price copper');
     await user.clear(copper);
@@ -473,10 +492,29 @@ describe('App', () => {
     await user.type(copper, '90');
     await user.tab();
     expect(copper).toHaveValue(90);
+    expect(within(totalCost(list())).getByText('3s 40c')).toBeInTheDocument();
     await user.click(screen.getByRole('button', { name: 'Use the auction price for Copper Bar (1s 13c)' }));
     expect(screen.getByLabelText('Copper Bar price silver')).toHaveValue(1);
     expect(copper).toHaveValue(13);
     expect(screen.queryByRole('button', { name: /Use the auction price/ })).toBeNull();
+    expect(within(totalCost(list())).getByText('3s 63c')).toBeInTheDocument();
+  });
+
+  it('warns when the auction prices are days old', async () => {
+    vi.setSystemTime(new Date('2026-11-13T17:00:00Z'));
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(AUCTION));
+    await renderApp();
+    expect(screen.getByText('Auction prices are 3 days old · US Alliance')).toHaveAttribute('data-stale', 'true');
+  });
+
+  it('turns the status stale on its own while the tab sits idle', async () => {
+    // 30 s short of two days old.
+    vi.setSystemTime(new Date('2026-11-12T15:59:30Z'));
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(AUCTION));
+    await renderApp();
+    expect(screen.getByText('Auction prices updated 47 h ago · US Alliance')).not.toHaveAttribute('data-stale');
+    await advance(60_000);
+    expect(screen.getByText('Auction prices are 2 days old · US Alliance')).toHaveAttribute('data-stale', 'true');
   });
 
   it('tags a linked item that is not on the auction house', async () => {

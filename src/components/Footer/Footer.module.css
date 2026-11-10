@@ -40,7 +40,7 @@
 
 /* Older than two days, or unavailable. */
 .status[data-stale='true'] {
-  color: var(--color-ribbon);
+  color: var(--color-ember);
   opacity: 1;
   font-style: normal;
   font-weight: 600;
