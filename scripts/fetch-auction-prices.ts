@@ -8,6 +8,10 @@
  *
  * Only type imports from src/ (erased when Node strips types), so Node runs this file directly.
  */
+import { rename, writeFile } from 'node:fs/promises';
+import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
+import type { AuctionHouse, AuctionPriceList } from '@/prices/auctionPrices';
 
 export type Listing = {
   itemId: number;
@@ -16,10 +20,41 @@ export type Listing = {
   quantity: number;
 };
 
+export type BlizzardClientDeps = {
+  fetch: typeof globalThis.fetch;
+};
+
+export type BlizzardClient = {
+  get(path: string): Promise<unknown>;
+};
+
 type UnknownRecord = Record<string, unknown>;
+
+type ListingBase = {
+  itemId: number;
+  quantity: number;
+};
+
+type HouseIndexEntry = {
+  id: number;
+  name: string;
+};
+
+type HouseIndex = {
+  auctions: HouseIndexEntry[];
+};
 
 /** Share of an item's quantity for sale that its price is averaged over, cheapest listings first. */
 const MARKET_SHARE = 0.15;
+/** The market the page prices from: US, ruleset 1 (PvP), Alliance house 110. The ruleset in the path doesn't filter. */
+const HOUSE: AuctionHouse = { ruleset: 1, id: 110, name: 'Alliance Auction House' };
+const TOKEN_URL = 'https://oauth.battle.net/token';
+const API = 'https://us.api.blizzard.com';
+const QUERY = 'namespace=dynamic-forever-us&locale=en_US';
+/** House 110 lists about 5 000 distinct items; far fewer means a broken or partial answer. */
+const MIN_ITEMS = 500;
+/** Relative to the working directory, which is the repo root under npm scripts and the workflow. */
+const OUTPUT_FILE = resolve('auction-prices.json');
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -35,11 +70,6 @@ function listingsOf(body: unknown, name: string, required: boolean): unknown[] {
   if (!Array.isArray(body.auctions)) throw new Error(`The ${name} answer has no auctions list`);
   return body.auctions;
 }
-
-type ListingBase = {
-  itemId: number;
-  quantity: number;
-};
 
 function listingBase(raw: UnknownRecord): ListingBase {
   const item = raw.item;
@@ -101,3 +131,81 @@ export function marketValues(listings: Listing[]): Record<string, number> {
   for (const [itemId, group] of byItem) prices[String(itemId)] = marketValue(group);
   return prices;
 }
+
+export function createBlizzardClient(clientId: string, clientSecret: string, deps: BlizzardClientDeps): BlizzardClient {
+  let token: Promise<string> | null = null;
+
+  const requestToken = async (): Promise<string> => {
+    const response = await deps.fetch(TOKEN_URL, {
+      method: 'POST',
+      headers: {
+        Authorization: `Basic ${btoa(`${clientId}:${clientSecret}`)}`,
+        'Content-Type': 'application/x-www-form-urlencoded',
+      },
+      body: 'grant_type=client_credentials',
+    });
+    if (!response.ok) throw new Error(`Blizzard token request failed: ${response.status}`);
+    const body: unknown = await response.json();
+    if (!isRecord(body) || typeof body.access_token !== 'string' || body.access_token === '') {
+      throw new Error('Blizzard token answer has no access token');
+    }
+    return body.access_token;
+  };
+
+  return {
+    async get(path) {
+      token ??= requestToken();
+      const response = await deps.fetch(`${API}${path}?${QUERY}`, { headers: { Authorization: `Bearer ${await token}` } });
+      if (!response.ok) throw new Error(`${path} answered ${response.status}`);
+      return response.json();
+    },
+  };
+}
+
+export function buildPriceList(listings: Listing[], house: AuctionHouse, now: Date): AuctionPriceList {
+  return { updatedAt: now.toISOString(), house, prices: marketValues(listings) };
+}
+
+export function checkPriceList(list: AuctionPriceList): void {
+  const count = Object.keys(list.prices).length;
+  if (count < MIN_ITEMS) throw new Error(`Only ${count} items priced (expected at least ${MIN_ITEMS}); not saving`);
+}
+
+async function listHouses(client: BlizzardClient): Promise<void> {
+  const index = (await client.get(`/data/wow/ruleset/${HOUSE.ruleset}/auctions/`)) as HouseIndex;
+  for (const house of index.auctions.filter((entry) => entry.name.startsWith('Alliance'))) {
+    const body = await client.get(`/data/wow/ruleset/${HOUSE.ruleset}/auctions/${house.id}/commodities`);
+    const count = isRecord(body) && Array.isArray(body.auctions) ? body.auctions.length : 0;
+    console.log(`${house.id}  ${house.name}  ${count} commodity listings${house.id === HOUSE.id ? '  ← used' : ''}`);
+  }
+}
+
+async function main(): Promise<void> {
+  const clientId = process.env.BLIZZARD_CLIENT_ID?.trim() ?? '';
+  const clientSecret = process.env.BLIZZARD_CLIENT_SECRET?.trim() ?? '';
+  if (clientId === '' || clientSecret === '') {
+    console.error('BLIZZARD_CLIENT_ID / BLIZZARD_CLIENT_SECRET are missing. Put them in .env (see .env.example).');
+    process.exit(1);
+  }
+  const client = createBlizzardClient(clientId, clientSecret, { fetch });
+  if (process.argv.includes('--houses')) {
+    await listHouses(client);
+    return;
+  }
+
+  const base = `/data/wow/ruleset/${HOUSE.ruleset}/auctions/${HOUSE.id}`;
+  const house = await client.get(base);
+  const commodities = await client.get(`${base}/commodities`);
+  const listings = unitListings(house, commodities);
+  const list = buildPriceList(listings, HOUSE, new Date());
+  checkPriceList(list);
+
+  // Write then rename, so a crash never leaves a half-written file for the KV upload step.
+  const tmpFile = `${OUTPUT_FILE}.tmp`;
+  await writeFile(tmpFile, JSON.stringify(list));
+  await rename(tmpFile, OUTPUT_FILE);
+  console.log(`Priced ${Object.keys(list.prices).length} items from ${listings.length} listings in house ${HOUSE.id}`);
+}
+
+const runAsScript = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);
+if (runAsScript) await main();

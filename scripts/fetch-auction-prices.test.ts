@@ -1,5 +1,15 @@
-import { describe, expect, it } from 'vitest';
-import { marketValue, marketValues, unitListings, type Listing } from '@scripts/fetch-auction-prices';
+import { describe, expect, it, vi } from 'vitest';
+import {
+  buildPriceList,
+  checkPriceList,
+  createBlizzardClient,
+  marketValue,
+  marketValues,
+  unitListings,
+  type BlizzardClientDeps,
+  type Listing,
+} from '@scripts/fetch-auction-prices';
+import type { AuctionHouse } from '@/prices/auctionPrices';
 
 const listing = (itemId: number, unitPrice: number, quantity: number): Listing => ({ itemId, unitPrice, quantity });
 
@@ -94,5 +104,70 @@ describe('marketValues', () => {
       '2840': 90,
       '2589': 26,
     });
+  });
+});
+
+const HOUSE: AuctionHouse = { ruleset: 1, id: 110, name: 'Alliance Auction House' };
+
+describe('buildPriceList', () => {
+  it('stamps the time and house and keeps one price per item', () => {
+    const list = buildPriceList([listing(2840, 113, 20)], HOUSE, new Date('2026-11-10T16:00:00Z'));
+    expect(list).toEqual({
+      updatedAt: '2026-11-10T16:00:00.000Z',
+      house: { ruleset: 1, id: 110, name: 'Alliance Auction House' },
+      prices: { '2840': 113 },
+    });
+  });
+});
+
+describe('checkPriceList', () => {
+  it('accepts a list with enough items', () => {
+    const prices = Object.fromEntries(Array.from({ length: 500 }, (_, index) => [String(index + 1), 10]));
+    expect(() => checkPriceList({ updatedAt: 'x', house: HOUSE, prices })).not.toThrow();
+  });
+
+  it('refuses a list that is suspiciously small, so it never replaces good data', () => {
+    expect(() => checkPriceList({ updatedAt: 'x', house: HOUSE, prices: { '2840': 113 } })).toThrow('Only 1 items');
+  });
+});
+
+describe('createBlizzardClient', () => {
+  const deps = (responses: Response[]): BlizzardClientDeps => {
+    const fetch = vi.fn<typeof globalThis.fetch>(async () => responses.shift() ?? new Response('', { status: 500 }));
+    return { fetch };
+  };
+
+  it('gets a client-credentials token once and sends it with the Forever namespace', async () => {
+    const d = deps([
+      Response.json({ access_token: 'tok', expires_in: 86399 }),
+      Response.json({ id: 110, name: 'Alliance Auction House' }),
+      Response.json({ auctions: [] }),
+    ]);
+    const client = createBlizzardClient('id', 'secret', d);
+    await expect(client.get('/data/wow/ruleset/1/auctions/110')).resolves.toEqual({ id: 110, name: 'Alliance Auction House' });
+    await expect(client.get('/data/wow/ruleset/1/auctions/110/commodities')).resolves.toEqual({ auctions: [] });
+    expect(d.fetch).toHaveBeenCalledTimes(3);
+    const [tokenUrl, tokenInit] = vi.mocked(d.fetch).mock.calls[0];
+    expect(tokenUrl).toBe('https://oauth.battle.net/token');
+    expect(tokenInit?.method).toBe('POST');
+    expect(new Headers(tokenInit?.headers).get('Authorization')).toBe(`Basic ${btoa('id:secret')}`);
+    const [apiUrl, apiInit] = vi.mocked(d.fetch).mock.calls[1];
+    expect(apiUrl).toBe('https://us.api.blizzard.com/data/wow/ruleset/1/auctions/110?namespace=dynamic-forever-us&locale=en_US');
+    expect(new Headers(apiInit?.headers).get('Authorization')).toBe('Bearer tok');
+  });
+
+  it('fails clearly when the token is refused', async () => {
+    const client = createBlizzardClient('id', 'bad', deps([new Response('', { status: 401 })]));
+    await expect(client.get('/data/wow/ruleset/1/auctions/110')).rejects.toThrow('Blizzard token request failed: 401');
+  });
+
+  it('fails clearly when the token answer has no access token', async () => {
+    const client = createBlizzardClient('id', 'secret', deps([Response.json({ error: 'invalid_client' })]));
+    await expect(client.get('/x')).rejects.toThrow('no access token');
+  });
+
+  it('fails clearly when the API answers an error', async () => {
+    const d = deps([Response.json({ access_token: 'tok' }), new Response('', { status: 503 })]);
+    await expect(createBlizzardClient('id', 'secret', d).get('/x')).rejects.toThrow('/x answered 503');
   });
 });
