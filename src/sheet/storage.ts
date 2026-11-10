@@ -18,7 +18,10 @@ type UnknownRecord = Record<string, unknown>;
 
 export const STORAGE_KEY = 'crafting-calculator:v3';
 
-/** Version 2 kept prices typed before auction prices existed; its entries are kept and its prices dropped once. */
+/**
+ * Version 2 kept prices typed before auction prices existed; its entries are kept and its prices dropped once.
+ * It is read only while no version 3 data exists, and removed by the first successful save.
+ */
 const PREVIOUS_STORAGE_KEY = 'crafting-calculator:v2';
 
 /** Older formats are dropped on load, not migrated. */
@@ -163,8 +166,6 @@ export function loadSheet(): Sheet | null {
     for (const key of LEGACY_STORAGE_KEYS) localStorage.removeItem(key);
     const current = readSaved(STORAGE_KEY, 3);
     const previous = current === null ? readSaved(PREVIOUS_STORAGE_KEY, 2) : null;
-    // Read once, then gone: the next save writes version 3.
-    localStorage.removeItem(PREVIOUS_STORAGE_KEY);
     const saved = current ?? previous;
     if (saved === null) return null;
     const entries = parseEntries(saved.entries);
@@ -179,6 +180,8 @@ export function saveSheet(sheet: Sheet): void {
   try {
     const saved: SavedSheet = { ...sheet, version: 3 };
     localStorage.setItem(STORAGE_KEY, JSON.stringify(saved));
+    // Only once version 3 is safely written, so closing the tab before the first save loses nothing.
+    localStorage.removeItem(PREVIOUS_STORAGE_KEY);
   } catch {
     // Storage blocked or full: the page keeps working, it just won't remember.
   }

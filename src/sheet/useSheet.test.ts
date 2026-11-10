@@ -1,10 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Entry, Sheet } from '@/sheet/sheet';
-import { loadSheet, saveSheet } from '@/sheet/storage';
+import { loadSheet, saveSheet, STORAGE_KEY } from '@/sheet/storage';
 import { useSheet } from '@/sheet/useSheet';
 import { TEST_CATALOG, testRecipe } from '@/test/catalogFixture';
-import { itemRow } from '@/test/sheetFixtures';
+import { coins, itemRow } from '@/test/sheetFixtures';
 
 const reagentCount = (entry: Entry): number | null => (entry.kind === 'recipe' ? (entry.recipe?.reagents.length ?? null) : null);
 
@@ -105,6 +105,18 @@ describe('useSheet', () => {
     act(() => result.current.actions.addItem());
     rerender();
     expect(result.current.actions).toBe(firstActions);
+  });
+
+  it('moves version 2 data to version 3 on mount, dropping its typed prices', () => {
+    const entries: Entry[] = [itemRow('a', 'Linen Cloth', 2)];
+    localStorage.setItem(
+      'crafting-calculator:v2',
+      JSON.stringify({ version: 2, entries, prices: { 'name:linen cloth': coins(125) }, muted: true }),
+    );
+    const { result } = renderHook(() => useSheet());
+    expect(result.current.sheet).toEqual({ entries, prices: {}, muted: true });
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')).toEqual({ version: 3, entries, prices: {}, muted: true });
+    expect(localStorage.getItem('crafting-calculator:v2')).toBeNull();
   });
 
   it('starts from a sheet already in storage, including muted', () => {
