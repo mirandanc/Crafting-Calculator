@@ -1,4 +1,4 @@
-import { fromCopper } from '@/money/money';
+import { fromCopper, GOLD_CAP_COPPER } from '@/money/money';
 import { priceKey, type Entry, type Prices } from '@/sheet/sheet';
 
 export type AuctionHouse = {
@@ -50,14 +50,18 @@ function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
+function isWholeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isInteger(value);
+}
+
 export function parseAuctionPriceList(value: unknown): AuctionPriceList | null {
   if (!isRecord(value) || typeof value.updatedAt !== 'string' || Number.isNaN(Date.parse(value.updatedAt))) return null;
   if (!isRecord(value.house) || !isRecord(value.prices)) return null;
   const { ruleset, id, name } = value.house;
-  if (typeof ruleset !== 'number' || typeof id !== 'number' || typeof name !== 'string') return null;
+  if (!isWholeNumber(ruleset) || !isWholeNumber(id) || typeof name !== 'string') return null;
   const prices: Record<string, number> = {};
   for (const [itemId, copper] of Object.entries(value.prices)) {
-    if (/^\d+$/.test(itemId) && typeof copper === 'number' && Number.isInteger(copper) && copper > 0) prices[itemId] = copper;
+    if (/^\d+$/.test(itemId) && isWholeNumber(copper) && copper > 0 && copper <= GOLD_CAP_COPPER) prices[itemId] = copper;
   }
   return { updatedAt: value.updatedAt, house: { ruleset, id, name }, prices };
 }
