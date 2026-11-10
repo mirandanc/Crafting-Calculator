@@ -1,6 +1,11 @@
 // @vitest-environment node
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { handleRequest, routeApi, type ProxyContext, type ResponseCache } from '@worker/proxy';
+import { handleRequest, routeApi, type PriceStore, type ProxyContext, type ResponseCache } from '@worker/proxy';
+
+type FakeKv = PriceStore & {
+  value: string | null;
+  get: ReturnType<typeof vi.fn>;
+};
 
 type FakeCache = ResponseCache & {
   stored: Map<string, Response>;
@@ -11,6 +16,7 @@ type TestContext = {
   cache: FakeCache;
   assetFetch: ReturnType<typeof vi.fn>;
   pending: Promise<unknown>[];
+  kv: FakeKv;
 };
 
 const createFakeCache = (): FakeCache => {
@@ -28,15 +34,16 @@ const createContext = (): TestContext => {
   const cache = createFakeCache();
   const pending: Promise<unknown>[] = [];
   const assetFetch = vi.fn(async () => new Response('asset'));
+  const kv: FakeKv = { value: null, get: vi.fn(async () => kv.value) };
   const context: ProxyContext = {
-    env: { FOREVERDB_API_KEY: 'test-key' },
+    env: { FOREVERDB_API_KEY: 'test-key', AUCTION_PRICES: kv },
     assets: { fetch: assetFetch },
     cache,
     waitUntil: (promise) => {
       pending.push(promise);
     },
   };
-  return { context, cache, assetFetch, pending };
+  return { context, cache, assetFetch, pending, kv };
 };
 
 const ITEMS_BODY = JSON.stringify({ data: [{ id: 2840, name: 'Copper Bar' }], meta: {} });
@@ -146,5 +153,52 @@ describe('handleRequest', () => {
     const { context } = createContext();
     const response = await handleRequest(new Request('https://calc.example/api/items?q=copper', { method: 'POST' }), context);
     expect(response.status).toBe(405);
+  });
+});
+
+const PRICE_LIST = JSON.stringify({
+  updatedAt: '2026-11-10T16:00:00.000Z',
+  house: { ruleset: 1, id: 110, name: 'Alliance Auction House' },
+  prices: { '2840': 113 },
+});
+
+describe('GET /api/auction-prices', () => {
+  it('serves the stored price list from KV, cacheable for an hour', async () => {
+    const { context, kv, cache, pending } = createContext();
+    kv.value = PRICE_LIST;
+    const response = await handleRequest(new Request('https://calc.example/api/auction-prices'), context);
+    expect(response.status).toBe(200);
+    expect(response.headers.get('Content-Type')).toBe('application/json; charset=utf-8');
+    expect(response.headers.get('Cache-Control')).toBe('public, max-age=3600');
+    expect(await response.text()).toBe(PRICE_LIST);
+    expect(kv.get).toHaveBeenCalledWith('auction-prices');
+    await Promise.all(pending);
+    expect([...cache.stored.keys()]).toEqual(['https://calc.example/api/auction-prices']);
+  });
+
+  it('answers from the edge cache without reading KV again, whatever the query string', async () => {
+    const { context, kv, pending } = createContext();
+    kv.value = PRICE_LIST;
+    await handleRequest(new Request('https://calc.example/api/auction-prices'), context);
+    await Promise.all(pending);
+    const again = await handleRequest(new Request('https://calc.example/api/auction-prices?bust=1'), context);
+    expect(await again.text()).toBe(PRICE_LIST);
+    expect(kv.get).toHaveBeenCalledTimes(1);
+  });
+
+  it('answers 503 while nothing has been stored yet, and does not cache that', async () => {
+    const { context, cache, pending } = createContext();
+    const response = await handleRequest(new Request('https://calc.example/api/auction-prices'), context);
+    expect(response.status).toBe(503);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    await Promise.all(pending);
+    expect(cache.stored.size).toBe(0);
+  });
+
+  it('only allows GET', async () => {
+    const { context, kv } = createContext();
+    const response = await handleRequest(new Request('https://calc.example/api/auction-prices', { method: 'POST' }), context);
+    expect(response.status).toBe(405);
+    expect(kv.get).not.toHaveBeenCalled();
   });
 });
