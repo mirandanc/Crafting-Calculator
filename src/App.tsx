@@ -39,6 +39,9 @@ export function App() {
           <EntryList
             entries={sheet.entries}
             prices={sheet.prices}
+            typedPrices={sheet.prices}
+            auctionByKey={{}}
+            auctionLoaded={false}
             catalog={catalog}
             actions={actions}
             onReachable={handleReachable}

@@ -1,17 +1,23 @@
 import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { EntryList } from '@/components/EntryList/EntryList';
-import { createRecipeBlock, withoutEntry, type Entry } from '@/sheet/sheet';
+import type { AuctionPricesByKey } from '@/prices/auctionPrices';
+import { createRecipeBlock, withoutEntry, type Entry, type Prices } from '@/sheet/sheet';
 import type { SheetActions } from '@/sheet/useSheet';
+import { coins, itemRow as namedItemRow } from '@/test/sheetFixtures';
 
 const itemRow = (id: string): Entry => ({ kind: 'item', id, name: '', itemId: null, icon: null, quantity: null });
 
 type HarnessProps = {
   initialEntries: Entry[];
+  typedPrices?: Prices;
+  /** Given, the auction list counts as loaded. */
+  auctionByKey?: AuctionPricesByKey;
+  onClearPrice?: (key: string) => void;
 };
 
-function Harness({ initialEntries }: HarnessProps) {
+function Harness({ initialEntries, typedPrices = {}, auctionByKey, onClearPrice = () => {} }: HarnessProps) {
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const actions: SheetActions = {
     addRecipe: () => setEntries((current) => [...current, createRecipeBlock()]),
@@ -26,10 +32,21 @@ function Harness({ initialEntries }: HarnessProps) {
     setItemQuantity: () => {},
     setPrice: () => {},
     normalizePrice: () => {},
-    clearPrice: () => {},
+    clearPrice: onClearPrice,
     setMuted: () => {},
   };
-  return <EntryList entries={entries} prices={{}} catalog={null} actions={actions} onReachable={() => {}} />;
+  return (
+    <EntryList
+      entries={entries}
+      prices={typedPrices}
+      typedPrices={typedPrices}
+      auctionByKey={auctionByKey ?? {}}
+      auctionLoaded={auctionByKey !== undefined}
+      catalog={null}
+      actions={actions}
+      onReachable={() => {}}
+    />
+  );
 }
 
 const activeEntryId = (): string | null =>
@@ -67,5 +84,21 @@ describe('EntryList', () => {
     // Removing the only remaining entry: no next, no previous, so focus goes to "Add recipe".
     fireEvent.click(screen.getByRole('button', { name: 'Remove item 1' }));
     expect(screen.getByRole('button', { name: 'Add recipe' })).toHaveFocus();
+  });
+
+  it('wires item rows to the auction prices, with no hint on a nameless row', () => {
+    const onClearPrice = vi.fn();
+    render(
+      <Harness
+        initialEntries={[namedItemRow('a', 'Tin Bar', 1, 3576), namedItemRow('b', 'Copper Ore', 1, 2770), namedItemRow('c', '', 1, 2771)]}
+        typedPrices={{ 'name:tin bar': coins(10) }}
+        auctionByKey={{ 'name:tin bar': 50 }}
+        onClearPrice={onClearPrice}
+      />,
+    );
+    fireEvent.click(screen.getByRole('button', { name: 'Use the auction price for Tin Bar (50c)' }));
+    expect(onClearPrice).toHaveBeenCalledWith('name:tin bar');
+    // Copper Ore is linked, unpriced and not listed; the nameless row has no price key, so no tag.
+    expect(screen.getAllByText('Not on AH')).toHaveLength(1);
   });
 });
