@@ -1,10 +1,10 @@
 import { act, renderHook } from '@testing-library/react';
 import { beforeEach, describe, expect, it } from 'vitest';
 import type { Entry, Sheet } from '@/sheet/sheet';
-import { loadSheet, saveSheet } from '@/sheet/storage';
+import { loadSheet, saveSheet, STORAGE_KEY } from '@/sheet/storage';
 import { useSheet } from '@/sheet/useSheet';
 import { TEST_CATALOG, testRecipe } from '@/test/catalogFixture';
-import { itemRow } from '@/test/sheetFixtures';
+import { coins, itemRow } from '@/test/sheetFixtures';
 
 const reagentCount = (entry: Entry): number | null => (entry.kind === 'recipe' ? (entry.recipe?.reagents.length ?? null) : null);
 
@@ -47,6 +47,29 @@ describe('useSheet', () => {
     expect(result.current.sheet.prices['name:copper bar']).toEqual({ gold: 0, silver: 1, copper: 50 });
   });
 
+  it('forgets a typed price once it is left empty, so the auction price can show again', () => {
+    const { result } = renderHook(() => useSheet());
+    act(() => result.current.actions.setPrice('name:copper bar', { gold: 0, silver: 0, copper: 0 }));
+    expect(result.current.sheet.prices).toHaveProperty(['name:copper bar']);
+    act(() => result.current.actions.normalizePrice('name:copper bar'));
+    expect(result.current.sheet.prices).not.toHaveProperty(['name:copper bar']);
+  });
+
+  it('clears a typed price and leaves the others', () => {
+    const { result } = renderHook(() => useSheet());
+    act(() => result.current.actions.setPrice('name:copper bar', { gold: 0, silver: 1, copper: 0 }));
+    act(() => result.current.actions.setPrice('name:tin bar', { gold: 0, silver: 2, copper: 0 }));
+    act(() => result.current.actions.clearPrice('name:copper bar'));
+    expect(result.current.sheet.prices).toEqual({ 'name:tin bar': { gold: 0, silver: 2, copper: 0 } });
+  });
+
+  it('keeps the same sheet when clearing a price that is not typed', () => {
+    const { result } = renderHook(() => useSheet());
+    const before = result.current.sheet;
+    act(() => result.current.actions.clearPrice('name:copper bar'));
+    expect(result.current.sheet).toBe(before);
+  });
+
   it('unlinks an item row when its name is typed', () => {
     const { result } = renderHook(() => useSheet());
     act(() => result.current.actions.addItem());
@@ -82,6 +105,18 @@ describe('useSheet', () => {
     act(() => result.current.actions.addItem());
     rerender();
     expect(result.current.actions).toBe(firstActions);
+  });
+
+  it('moves version 2 data to version 3 on mount, dropping its typed prices', () => {
+    const entries: Entry[] = [itemRow('a', 'Linen Cloth', 2)];
+    localStorage.setItem(
+      'crafting-calculator:v2',
+      JSON.stringify({ version: 2, entries, prices: { 'name:linen cloth': coins(125) }, muted: true }),
+    );
+    const { result } = renderHook(() => useSheet());
+    expect(result.current.sheet).toEqual({ entries, prices: {}, muted: true });
+    expect(JSON.parse(localStorage.getItem(STORAGE_KEY) ?? 'null')).toEqual({ version: 3, entries, prices: {}, muted: true });
+    expect(localStorage.getItem('crafting-calculator:v2')).toBeNull();
   });
 
   it('starts from a sheet already in storage, including muted', () => {

@@ -1,0 +1,36 @@
+/* Small, quiet marks beside a price; they must not push the coin fields around. */
+.tag {
+  font-family: var(--font-caps);
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-soft);
+  white-space: nowrap;
+}
+
+.restore {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  align-self: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 1px solid rgba(125, 29, 16, 0.45);
+  border-radius: 50%;
+  background: transparent;
+  font-size: 16px;
+  line-height: 1;
+  color: var(--color-rubric);
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.restore:hover {
+  color: var(--color-paper-cream);
+  background: var(--color-rubric);
+}
+
+/* A second ring alongside the global outline, as on RemoveButton: the outline alone is hard to see on parchment. */
+.restore:focus-visible {
+  box-shadow: 0 0 0 4px var(--color-rubric);
+}

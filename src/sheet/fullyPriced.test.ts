@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { fullyPricedEntryIds, isEntryFullyPriced } from '@/sheet/fullyPriced';
+import { fullyPricedEntryIds, isEntryFullyPriced, usesTypedPrice } from '@/sheet/fullyPriced';
 import { createRecipeBlock, withoutReagent, type Prices } from '@/sheet/sheet';
 import { coins, itemRow, recipeBlock } from '@/test/sheetFixtures';
 
@@ -40,5 +40,17 @@ describe('fullyPricedEntryIds', () => {
   it('lists fully priced entries in page order', () => {
     const entries = [itemRow('a', 'Copper Bar', 1, 2840), createRecipeBlock(), recipeBlock('c', 'Smelt Bronze', 2)];
     expect(fullyPricedEntryIds(entries, BOTH_BARS)).toEqual(['a', 'c']);
+  });
+});
+
+describe('usesTypedPrice', () => {
+  it('is true when any of the entry prices was typed', () => {
+    expect(usesTypedPrice(recipeBlock('a', 'Smelt Bronze', 2), { 'name:tin bar': coins(5) })).toBe(true);
+    expect(usesTypedPrice(itemRow('i', 'Linen Cloth', 1), { 'name:linen cloth': coins(25) })).toBe(true);
+  });
+
+  it('is false when every price came from the auction', () => {
+    expect(usesTypedPrice(recipeBlock('a', 'Smelt Bronze', 2), {})).toBe(false);
+    expect(usesTypedPrice(itemRow('i', 'Linen Cloth', 1), {})).toBe(false);
   });
 });

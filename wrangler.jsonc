@@ -10,8 +10,13 @@
   "build": {
     "command": "npm run build"
   },
-  // Required by `wrangler preview`, which Cloudflare runs for pull-request builds.
-  "previews": {},
+  // Required by `wrangler preview`, which Cloudflare runs for pull-request builds. Bindings are not inherited from
+  // the top level, so previews list the KV namespace again (they only ever read the production prices).
+  "previews": {
+    "kv_namespaces": [
+      { "binding": "AUCTION_PRICES", "id": "630acd3b18394310824cec768eaa53f2" }
+    ]
+  },
   // FOREVERDB_API_KEY is a secret set in the dashboard (Production and Previews Base). It is not listed under
   // secrets.required: that makes deploys fail while it is missing, and Cloudflare only accepts the secret once a
   // deploy with Worker code exists.
@@ -19,5 +24,9 @@
     "directory": "./dist",
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
-  }
+  },
+  // Filled three times a day by .github/workflows/auction-prices.yml; the Worker serves it at /api/auction-prices.
+  "kv_namespaces": [
+    { "binding": "AUCTION_PRICES", "id": "630acd3b18394310824cec768eaa53f2" }
+  ]
 }

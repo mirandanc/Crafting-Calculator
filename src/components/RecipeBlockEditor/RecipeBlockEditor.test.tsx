@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import { RecipeBlockEditor } from '@/components/RecipeBlockEditor/RecipeBlockEditor';
+import type { AuctionPricesByKey } from '@/prices/auctionPrices';
 import type { Prices, RecipeBlock } from '@/sheet/sheet';
 import { TEST_CATALOG } from '@/test/catalogFixture';
 import { coins, recipeBlock } from '@/test/sheetFixtures';
@@ -15,21 +16,40 @@ type Handlers = {
   onRemoveReagent: Mock<Props['onRemoveReagent']>;
   onPriceChange: Mock<Props['onPriceChange']>;
   onPriceBlur: Mock<Props['onPriceBlur']>;
+  onRestorePrice: Mock<Props['onRestorePrice']>;
   onRemove: Mock<Props['onRemove']>;
+};
+
+/** Typed prices and a loaded auction list; left out, the auction list hasn't loaded and no hint shows. */
+type Auction = {
+  typedPrices: Prices;
+  auctionByKey: AuctionPricesByKey;
 };
 
 const EMPTY_BLOCK: RecipeBlock = { kind: 'recipe', id: 'r', recipe: null, wanted: null };
 
-const renderBlock = (block: RecipeBlock, prices: Prices = {}) => {
+const renderBlock = (block: RecipeBlock, prices: Prices = {}, auction: Auction | null = null) => {
   const handlers: Handlers = {
     onChoose: vi.fn(),
     onWantedChange: vi.fn(),
     onRemoveReagent: vi.fn(),
     onPriceChange: vi.fn(),
     onPriceBlur: vi.fn(),
+    onRestorePrice: vi.fn(),
     onRemove: vi.fn(),
   };
-  render(<RecipeBlockEditor block={block} position={1} catalog={TEST_CATALOG} prices={prices} {...handlers} />);
+  render(
+    <RecipeBlockEditor
+      block={block}
+      position={1}
+      catalog={TEST_CATALOG}
+      prices={prices}
+      typedPrices={auction?.typedPrices ?? {}}
+      auctionByKey={auction?.auctionByKey ?? {}}
+      auctionLoaded={auction !== null}
+      {...handlers}
+    />,
+  );
   return { handlers, user: userEvent.setup(), article: screen.getByRole('article', { name: 'Recipe 1' }) };
 };
 
@@ -67,6 +87,19 @@ describe('RecipeBlockEditor', () => {
     expect(within(article).getByLabelText('Copper Bar price copper')).toHaveValue(10);
     await user.type(within(article).getByLabelText('Tin Bar price copper'), '5');
     expect(handlers.onPriceChange).toHaveBeenLastCalledWith('name:tin bar', { gold: 0, silver: 0, copper: 5 });
+  });
+
+  it('offers the auction price back for a typed reagent price, and tags a reagent missing from the AH', async () => {
+    const typed: Prices = { 'name:copper bar': coins(10) };
+    const { handlers, user, article } = renderBlock(recipeBlock('r', 'Smelt Bronze', 1), typed, {
+      typedPrices: typed,
+      auctionByKey: { 'name:copper bar': 1240 },
+    });
+    const copper = within(article).getByRole('listitem', { name: 'Copper Bar' });
+    await user.click(within(copper).getByRole('button', { name: 'Use the auction price for Copper Bar (12s 40c)' }));
+    expect(handlers.onRestorePrice).toHaveBeenCalledWith('name:copper bar');
+    const tin = within(article).getByRole('listitem', { name: 'Tin Bar' });
+    expect(within(tin).getByText('Not on AH')).toBeInTheDocument();
   });
 
   it('removes a reagent', async () => {

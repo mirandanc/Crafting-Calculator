@@ -1,0 +1,35 @@
+name: Auction prices
+
+# Three times a day (UTC), plus a "Run workflow" button. GitHub only runs schedules on the default
+# branch, and pauses them after 60 days without commits; the manual button turns them back on.
+on:
+  schedule:
+    - cron: '0 0,8,16 * * *'
+  workflow_dispatch:
+
+concurrency: auction-prices
+
+permissions:
+  contents: read
+
+jobs:
+  update:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .node-version
+          cache: npm
+      - run: npm ci
+      - name: Fetch house 110 and work out prices
+        run: node scripts/fetch-auction-prices.ts
+        env:
+          BLIZZARD_CLIENT_ID: ${{ secrets.BLIZZARD_CLIENT_ID }}
+          BLIZZARD_CLIENT_SECRET: ${{ secrets.BLIZZARD_CLIENT_SECRET }}
+      - name: Store them in Cloudflare KV
+        run: npx wrangler kv key put auction-prices --path auction-prices.json --binding AUCTION_PRICES --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}

@@ -1,21 +1,42 @@
 import { useEffect, useRef, useState } from 'react';
-import { fullyPricedEntryIds } from '@/sheet/fullyPriced';
+import { fullyPricedEntryIds, usesTypedPrice } from '@/sheet/fullyPriced';
 import type { Entry, Prices } from '@/sheet/sheet';
 import { announceReady, pruneAnnounced } from '@/sound/chime';
 
+export type ChimeInputs = {
+  entries: Entry[];
+  /** Prices in effect: typed ones over auction ones. */
+  prices: Prices;
+  /** Prices the player typed. */
+  typedPrices: Prices;
+  /** Changes when a new auction price list arrives (its updatedAt), null before. */
+  auctionStamp: string | null;
+};
+
 const CHIME_DELAY_MS = 800;
 
-/** Calls `onChime` once, 800 ms after the last change, when any entry has newly become fully priced. */
-export function useChimeOnFullyPriced(entries: Entry[], prices: Prices, onChime: () => void): void {
+/**
+ * Calls `onChime` once, 800 ms after the last change, when an entry has newly become fully priced by
+ * the player's own typing. Entries priced by the auction alone, or completed by auction data arriving,
+ * are marked as announced silently. A typed completion inside the same window as auction data arriving
+ * is also silent.
+ */
+export function useChimeOnFullyPriced({ entries, prices, typedPrices, auctionStamp }: ChimeInputs, onChime: () => void): void {
   const [initiallyReady] = useState(() => fullyPricedEntryIds(entries, prices));
   const announcedRef = useRef<string[]>(initiallyReady);
   const onChimeRef = useRef(onChime);
+  const lastStampRef = useRef(auctionStamp);
+  const auctionChangedRef = useRef(false);
 
   useEffect(() => {
     onChimeRef.current = onChime;
   }, [onChime]);
 
   useEffect(() => {
+    if (auctionStamp !== lastStampRef.current) {
+      lastStampRef.current = auctionStamp;
+      auctionChangedRef.current = true;
+    }
     const ready = fullyPricedEntryIds(entries, prices);
 
     // One shared debounce: any change restarts the delay for everything pending. Pruning happens
@@ -25,9 +46,16 @@ export function useChimeOnFullyPriced(entries: Entry[], prices: Prices, onChime:
       const pruned = pruneAnnounced(announcedRef.current, ready);
       const { announced, added } = announceReady(pruned, ready);
       announcedRef.current = announced;
-      if (added.length > 0) onChimeRef.current();
+      const auctionChanged = auctionChangedRef.current;
+      auctionChangedRef.current = false;
+      if (auctionChanged) return;
+      const typedAdded = added.some((id) => {
+        const entry = entries.find((candidate) => candidate.id === id);
+        return entry !== undefined && usesTypedPrice(entry, typedPrices);
+      });
+      if (typedAdded) onChimeRef.current();
     }, CHIME_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [entries, prices]);
+  }, [entries, prices, typedPrices, auctionStamp]);
 }

@@ -17,3 +17,9 @@ export function isEntryFullyPriced(entry: Entry, prices: Prices): boolean {
 export function fullyPricedEntryIds(entries: Entry[], prices: Prices): string[] {
   return entries.filter((entry) => isEntryFullyPriced(entry, prices)).map((entry) => entry.id);
 }
+
+/** True when at least one of the entry's prices was typed by the player (not filled from the auction). */
+export function usesTypedPrice(entry: Entry, typed: Prices): boolean {
+  if (entry.kind === 'item') return entry.name.trim() !== '' && priceKey(entry.name) in typed;
+  return (entry.recipe?.reagents ?? []).some((reagent) => priceKey(reagent.name) in typed);
+}

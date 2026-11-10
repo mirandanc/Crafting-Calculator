@@ -11,3 +11,7 @@ coverage/
 
 # Wrangler state
 .wrangler/
+
+# Output of `npm run fetch:auction-prices` (uploaded to KV, never committed)
+auction-prices.json
+auction-prices.json.tmp

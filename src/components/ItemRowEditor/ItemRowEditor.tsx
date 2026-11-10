@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { AuctionHint } from '@/components/AuctionHint/AuctionHint';
 import { Autocomplete, type SearchOption } from '@/components/Autocomplete/Autocomplete';
 import { EntryNumeral } from '@/components/EntryNumeral/EntryNumeral';
 import styles from '@/components/ItemRowEditor/ItemRowEditor.module.css';
@@ -6,17 +7,20 @@ import { MoneyInput } from '@/components/MoneyInput/MoneyInput';
 import { RemoveButton } from '@/components/RemoveButton/RemoveButton';
 import { useItemSearch } from '@/foreverdb/useItemSearch';
 import type { Coins } from '@/money/money';
+import type { AuctionHint as AuctionHintState } from '@/prices/auctionPrices';
 import { MAX_QUANTITY, parseQuantity, type ItemRow, type LinkedItem } from '@/sheet/sheet';
 
 type ItemRowEditorProps = {
   row: ItemRow;
   position: number;
   price: Coins;
+  hint: AuctionHintState;
   onRename: (name: string) => void;
   onLink: (item: LinkedItem) => void;
   onQuantityChange: (quantity: number | null) => void;
   onPriceChange: (price: Coins) => void;
   onPriceBlur: () => void;
+  onRestorePrice: () => void;
   onRemove: () => void;
   onReachable: (reachable: boolean) => void;
 };
@@ -25,11 +29,13 @@ export function ItemRowEditor({
   row,
   position,
   price,
+  hint,
   onRename,
   onLink,
   onQuantityChange,
   onPriceChange,
   onPriceBlur,
+  onRestorePrice,
   onRemove,
   onReachable,
 }: ItemRowEditorProps) {
@@ -79,14 +85,17 @@ export function ItemRowEditor({
             onChange={(event) => onQuantityChange(parseQuantity(event.target.value))}
           />
         </label>
-        <MoneyInput
-          label="Unit price"
-          caption="each"
-          value={price}
-          onChange={onPriceChange}
-          onBlur={onPriceBlur}
-          disabledReason={unnamed ? 'Name the item first' : undefined}
-        />
+        <div className={styles.price}>
+          <MoneyInput
+            label="Unit price"
+            caption="each"
+            value={price}
+            onChange={onPriceChange}
+            onBlur={onPriceBlur}
+            disabledReason={unnamed ? 'Name the item first' : undefined}
+          />
+          <AuctionHint hint={hint} itemName={row.name.trim()} onRestore={onRestorePrice} />
+        </div>
       </div>
     </article>
   );

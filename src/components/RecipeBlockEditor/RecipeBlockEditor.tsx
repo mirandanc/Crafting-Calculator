@@ -5,6 +5,7 @@ import { ReagentRow } from '@/components/ReagentRow/ReagentRow';
 import styles from '@/components/RecipeBlockEditor/RecipeBlockEditor.module.css';
 import { RemoveButton } from '@/components/RemoveButton/RemoveButton';
 import type { Coins } from '@/money/money';
+import { auctionHintOf, type AuctionPricesByKey } from '@/prices/auctionPrices';
 import { searchRecipes, type CatalogItem, type CatalogRecipe, type RecipeCatalog } from '@/recipes/catalog';
 import { craftNote, planCrafts, reagentQuantity } from '@/sheet/crafts';
 import { MAX_WANTED, parseWanted, priceKey, priceOf, type Prices, type RecipeBlock } from '@/sheet/sheet';
@@ -13,12 +14,18 @@ type RecipeBlockEditorProps = {
   block: RecipeBlock;
   position: number;
   catalog: RecipeCatalog | null;
+  /** The prices in effect: typed over auction. */
   prices: Prices;
+  /** Only the prices the player typed. */
+  typedPrices: Prices;
+  auctionByKey: AuctionPricesByKey;
+  auctionLoaded: boolean;
   onChoose: (recipe: CatalogRecipe, items: Record<string, CatalogItem>) => void;
   onWantedChange: (wanted: number | null) => void;
   onRemoveReagent: (itemId: number) => void;
   onPriceChange: (key: string, price: Coins) => void;
   onPriceBlur: (key: string) => void;
+  onRestorePrice: (key: string) => void;
   onRemove: () => void;
 };
 
@@ -27,11 +34,15 @@ export function RecipeBlockEditor({
   position,
   catalog,
   prices,
+  typedPrices,
+  auctionByKey,
+  auctionLoaded,
   onChoose,
   onWantedChange,
   onRemoveReagent,
   onPriceChange,
   onPriceBlur,
+  onRestorePrice,
   onRemove,
 }: RecipeBlockEditorProps) {
   const { recipe } = block;
@@ -106,8 +117,10 @@ export function RecipeBlockEditor({
                     recipeName={recipe.name}
                     quantity={reagentQuantity(reagent.perCraft, plan)}
                     price={priceOf(prices, key)}
+                    hint={auctionHintOf(key, true, typedPrices, auctionByKey, auctionLoaded)}
                     onPriceChange={(price) => onPriceChange(key, price)}
                     onPriceBlur={() => onPriceBlur(key)}
+                    onRestorePrice={() => onRestorePrice(key)}
                     onRemove={() => onRemoveReagent(reagent.itemId)}
                   />
                 );

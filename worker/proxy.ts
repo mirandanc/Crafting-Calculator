@@ -1,9 +1,15 @@
 /**
  * /api proxy in front of ForeverDB: adds the secret key, caches answers for a day, and hands every
- * other request to the static assets. Uses only standard Fetch API types so tests run in Node.
+ * other request to the static assets. Also serves the auction price list kept in KV. Uses only standard
+ * Fetch API types so tests run in Node.
  */
+export type PriceStore = {
+  get(key: string): Promise<string | null>;
+};
+
 export type ProxyEnv = {
   FOREVERDB_API_KEY: string;
+  AUCTION_PRICES: PriceStore;
 };
 
 export type AssetFetcher = {
@@ -38,6 +44,9 @@ const MIN_QUERY_LENGTH = 3;
 const MAX_QUERY_LENGTH = 80;
 const SEARCH_PAGE_SIZE = 100; // ForeverDB's maximum; the app ranks and keeps 8
 const ITEM_BY_ID = /^\/api\/items\/(\d{1,9})$/;
+const AUCTION_PRICES_PATH = '/api/auction-prices';
+const AUCTION_PRICES_KEY = 'auction-prices'; // the key .github/workflows/auction-prices.yml writes
+const AUCTION_CACHE_SECONDS = 3_600;
 
 export function routeApi(url: URL): ApiRoute | ApiError {
   if (url.pathname === '/api/items') {
@@ -62,10 +71,35 @@ function errorResponse(status: number, message: string): Response {
   return Response.json({ error: message }, { status, headers: { 'Cache-Control': 'no-store' } });
 }
 
+/** Serves the price list the scheduled job stored in KV (see scripts/fetch-auction-prices.ts). */
+async function handleAuctionPrices(url: URL, context: ProxyContext): Promise<Response> {
+  const cacheKey = new Request(`${url.origin}${AUCTION_PRICES_PATH}`);
+  const cached = await context.cache.match(cacheKey);
+  if (cached !== undefined) return cached;
+
+  let stored: string | null;
+  try {
+    stored = await context.env.AUCTION_PRICES.get(AUCTION_PRICES_KEY);
+  } catch {
+    return errorResponse(502, 'Auction prices could not be read');
+  }
+  if (stored === null) return errorResponse(503, 'No auction prices stored yet');
+
+  const response = new Response(stored, {
+    headers: {
+      'Content-Type': 'application/json; charset=utf-8',
+      'Cache-Control': `public, max-age=${AUCTION_CACHE_SECONDS}`,
+    },
+  });
+  context.waitUntil(context.cache.put(cacheKey, response.clone()));
+  return response;
+}
+
 export async function handleRequest(request: Request, context: ProxyContext): Promise<Response> {
   const url = new URL(request.url);
   if (!url.pathname.startsWith('/api/')) return context.assets.fetch(request);
   if (request.method !== 'GET') return errorResponse(405, 'Only GET is supported');
+  if (url.pathname === AUCTION_PRICES_PATH) return handleAuctionPrices(url, context);
 
   const route = routeApi(url);
   if (!('upstream' in route)) return errorResponse(route.status, route.message);
