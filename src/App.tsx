@@ -19,7 +19,7 @@ export function App() {
   const { sheet, actions } = useSheet();
   const { catalog, failed: catalogFailed } = useRecipeCatalog();
   const playCoin = useCoinSound(sheet.muted);
-  useChimeOnFullyPriced(sheet.entries, sheet.prices, playCoin);
+  useChimeOnFullyPriced({ entries: sheet.entries, prices: sheet.prices, typedPrices: sheet.prices, auctionStamp: null }, playCoin);
   const [connectionLost, setConnectionLost] = useState(false);
   const handleReachable = useCallback((reachable: boolean) => setConnectionLost(!reachable), []);
   const summary = useMemo(() => summarizeShopping(sheet.entries, sheet.prices), [sheet.entries, sheet.prices]);
