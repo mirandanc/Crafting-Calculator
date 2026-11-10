@@ -25,12 +25,30 @@
 
 .pricing {
   grid-column: 2 / -1;
+  container: pricing / inline-size;
   display: flex;
   flex-wrap: wrap;
   align-items: baseline;
   gap: 6px 18px;
   font-size: 16px;
   color: var(--color-ink-soft);
+}
+
+/* The coins and their auction hint, kept close so the hint reads as part of the price and wraps with it. */
+.price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
+/* When the count and the coins fit on one line, the price takes the rest of it, so a hint too wide to
+   follow the coins drops under them instead of pushing the coins off the count's line. */
+@container pricing (min-width: 330px) {
+  .price {
+    flex: 1 1 0;
+  }
 }
 
 .count {

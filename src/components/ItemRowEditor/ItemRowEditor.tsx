@@ -85,15 +85,17 @@ export function ItemRowEditor({
             onChange={(event) => onQuantityChange(parseQuantity(event.target.value))}
           />
         </label>
-        <MoneyInput
-          label="Unit price"
-          caption="each"
-          value={price}
-          onChange={onPriceChange}
-          onBlur={onPriceBlur}
-          disabledReason={unnamed ? 'Name the item first' : undefined}
-        />
-        <AuctionHint hint={hint} itemName={row.name.trim()} onRestore={onRestorePrice} />
+        <div className={styles.price}>
+          <MoneyInput
+            label="Unit price"
+            caption="each"
+            value={price}
+            onChange={onPriceChange}
+            onBlur={onPriceBlur}
+            disabledReason={unnamed ? 'Name the item first' : undefined}
+          />
+          <AuctionHint hint={hint} itemName={row.name.trim()} onRestore={onRestorePrice} />
+        </div>
       </div>
     </article>
   );

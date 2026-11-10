@@ -25,6 +25,15 @@
   color: var(--color-ink-soft);
 }
 
+/* The coins and their auction hint, kept close so the hint reads as part of the price and wraps with it. */
+.price {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 8px;
+  min-width: 0;
+}
+
 .quantity {
   display: flex;
   align-items: baseline;

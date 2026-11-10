@@ -46,8 +46,10 @@ export function ReagentRow({
           <span aria-hidden="true">×</span>
           <span>{quantity}</span>
         </span>
-        <MoneyInput label={`${reagent.name} price`} caption="each" value={price} onChange={onPriceChange} onBlur={onPriceBlur} />
-        <AuctionHint hint={hint} itemName={reagent.name} onRestore={onRestorePrice} />
+        <div className={styles.price}>
+          <MoneyInput label={`${reagent.name} price`} caption="each" value={price} onChange={onPriceChange} onBlur={onPriceBlur} />
+          <AuctionHint hint={hint} itemName={reagent.name} onRestore={onRestorePrice} />
+        </div>
       </div>
     </li>
   );
