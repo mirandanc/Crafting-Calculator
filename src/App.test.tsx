@@ -43,7 +43,7 @@ const RECIPE_BOOK_FAILED = 'The recipe book could not be opened. Recipe search i
 const AUCTION_PRICES_FAILED = 'Failed to load auction prices';
 const RECIPE_CATALOG_FAILED = 'Failed to load the recipe catalog';
 
-const jsonResponse =(body: unknown): Response => new Response(JSON.stringify(body));
+const jsonResponse = (body: unknown): Response => new Response(JSON.stringify(body));
 
 const renderApp = async (): Promise<RenderedApp> => {
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
