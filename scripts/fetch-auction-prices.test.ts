@@ -9,6 +9,7 @@ import {
   type BlizzardClientDeps,
   type Listing,
 } from '@scripts/fetch-auction-prices';
+import { GOLD_CAP_COPPER } from '@/money/money';
 import type { AuctionHouse } from '@/prices/auctionPrices';
 
 const listing = (itemId: number, unitPrice: number, quantity: number): Listing => ({ itemId, unitPrice, quantity });
@@ -43,6 +44,15 @@ describe('marketValue', () => {
     expect(marketValue([listing(1, 10, 1), listing(1, 11, 1)])).toBe(10);
     // 15% of 20 = 3: 1 @ 10 + 3 @ 11 = 43 / 4 = 10.75 → 11.
     expect(marketValue([listing(1, 10, 1), listing(1, 11, 3), listing(1, 50, 16)])).toBe(11);
+  });
+
+  it('never rounds a listed item down to 0 copper', () => {
+    // A stack of 200 bought out for 1 copper is 0.005 copper each.
+    expect(marketValue([listing(1, 1 / 200, 200)])).toBe(1);
+  });
+
+  it('never goes above the gold cap the page accepts', () => {
+    expect(marketValue([listing(1, GOLD_CAP_COPPER * 3, 1)])).toBe(GOLD_CAP_COPPER);
   });
 });
 

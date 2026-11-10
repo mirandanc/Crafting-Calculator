@@ -46,6 +46,11 @@ type HouseIndex = {
 
 /** Share of an item's quantity for sale that its price is averaged over, cheapest listings first. */
 const MARKET_SHARE = 0.15;
+/**
+ * Mirrors GOLD_CAP_COPPER in src/money/money.ts (9 999 999g 99s 99c), the most the page accepts.
+ * Kept as a copy because this script may import only types from src/.
+ */
+const GOLD_CAP_COPPER = 99_999_999_999;
 /** The market the page prices from: US, ruleset 1 (PvP), Alliance house 110. The ruleset in the path doesn't filter. */
 const HOUSE: AuctionHouse = { ruleset: 1, id: 110, name: 'Alliance Auction House' };
 const TOKEN_URL = 'https://oauth.battle.net/token';
@@ -105,7 +110,10 @@ export function unitListings(house: unknown, commodities: unknown): Listing[] {
   return listings;
 }
 
-/** Quantity-weighted average of the cheapest listings that reach MARKET_SHARE of the quantity for sale. */
+/**
+ * Quantity-weighted average of the cheapest listings that reach MARKET_SHARE of the quantity for sale.
+ * Kept within [1, GOLD_CAP_COPPER] copper, so the page never drops a listed item as "Not on AH".
+ */
 export function marketValue(listings: Listing[]): number {
   if (listings.length === 0) throw new Error('No listings to price');
   const sorted = [...listings].sort((a, b) => a.unitPrice - b.unitPrice);
@@ -118,7 +126,7 @@ export function marketValue(listings: Listing[]): number {
     spent += listing.unitPrice * listing.quantity;
     if (taken >= target) break;
   }
-  return Math.round(spent / taken);
+  return Math.min(GOLD_CAP_COPPER, Math.max(1, Math.round(spent / taken)));
 }
 
 /** One market value per item id, in copper. */
