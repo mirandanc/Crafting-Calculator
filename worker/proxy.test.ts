@@ -195,6 +195,17 @@ describe('GET /api/auction-prices', () => {
     expect(cache.stored.size).toBe(0);
   });
 
+  it('answers 502 when KV cannot be read, and does not cache that', async () => {
+    const { context, kv, cache, pending } = createContext();
+    kv.get.mockRejectedValueOnce(new Error('KV unavailable'));
+    const response = await handleRequest(new Request('https://calc.example/api/auction-prices'), context);
+    expect(response.status).toBe(502);
+    expect(response.headers.get('Cache-Control')).toBe('no-store');
+    expect(await response.json()).toEqual({ error: 'Auction prices could not be read' });
+    await Promise.all(pending);
+    expect(cache.stored.size).toBe(0);
+  });
+
   it('only allows GET', async () => {
     const { context, kv } = createContext();
     const response = await handleRequest(new Request('https://calc.example/api/auction-prices', { method: 'POST' }), context);

@@ -77,7 +77,12 @@ async function handleAuctionPrices(url: URL, context: ProxyContext): Promise<Res
   const cached = await context.cache.match(cacheKey);
   if (cached !== undefined) return cached;
 
-  const stored = await context.env.AUCTION_PRICES.get(AUCTION_PRICES_KEY);
+  let stored: string | null;
+  try {
+    stored = await context.env.AUCTION_PRICES.get(AUCTION_PRICES_KEY);
+  } catch {
+    return errorResponse(502, 'Auction prices could not be read');
+  }
   if (stored === null) return errorResponse(503, 'No auction prices stored yet');
 
   const response = new Response(stored, {
