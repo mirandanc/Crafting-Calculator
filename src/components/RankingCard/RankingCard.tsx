@@ -28,7 +28,11 @@ export function RankingCard({ ranked, onAdd }: RankingCardProps) {
         onClick={() => onAdd(recipe)}
       >
         <span className={styles.head}>
-          <ItemIcon src={recipe.icon} size="row" />
+          <ItemIcon
+            src={recipe.icon}
+            size="row"
+            item={recipe.makes === null ? undefined : { itemId: recipe.makes.itemId, name: recipe.makes.name }}
+          />
           <span className={styles.title}>
             <span className={styles.name}>{recipe.name}</span>
             <span className={styles.profession}>
@@ -70,7 +74,11 @@ export function RankingCard({ ranked, onAdd }: RankingCardProps) {
             {reagents.map((reagent) => (
               <Fragment key={reagent.itemId}>
                 <span role="listitem" className={styles.reagent} aria-label={reagent.name}>
-                  {reagent.icon === null ? <span className={styles.iconGap} aria-hidden="true" /> : <ItemIcon src={reagent.icon} size="small" />}
+                  {reagent.icon === null ? (
+                    <span className={styles.iconGap} aria-hidden="true" />
+                  ) : (
+                    <ItemIcon src={reagent.icon} size="small" item={{ itemId: reagent.itemId, name: reagent.name }} />
+                  )}
                   <span className={styles.reagentName}>{reagent.name}</span>{' '}
                   <span className={styles.count}>×{reagent.count}</span>{' '}
                   <MoneyText copper={reagent.unitPrice} />

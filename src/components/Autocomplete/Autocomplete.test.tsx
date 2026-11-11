@@ -9,8 +9,14 @@ type HarnessProps = {
 };
 
 const OPTIONS: SearchOption[] = [
-  { key: '1', label: 'Copper Bar', detail: null, icon: null },
-  { key: '2', label: 'Copper Ore', detail: 'Mining', icon: 'https://foreverdb.net/icons/134566.webp' },
+  { key: '1', label: 'Copper Bar', detail: null, icon: null, item: null },
+  {
+    key: '2',
+    label: 'Copper Ore',
+    detail: 'Mining',
+    icon: 'https://foreverdb.net/icons/134566.webp',
+    item: { itemId: 2770, name: 'Copper Ore' },
+  },
 ];
 
 function Harness({ onSelect }: HarnessProps) {

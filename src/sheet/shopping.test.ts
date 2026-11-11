@@ -18,6 +18,7 @@ describe('summarizeShopping', () => {
           key: 'name:copper bar',
           name: 'Copper Bar',
           icon: 'https://foreverdb.net/icons/133216.webp',
+          itemId: 2840,
           quantity: 6,
           unitPrice: 10,
           sources: ['Smelt Bronze'],
@@ -26,6 +27,7 @@ describe('summarizeShopping', () => {
           key: 'name:tin bar',
           name: 'Tin Bar',
           icon: 'https://foreverdb.net/icons/133219.webp',
+          itemId: 3576,
           quantity: 6,
           unitPrice: 5,
           sources: ['Smelt Bronze'],
@@ -92,7 +94,7 @@ describe('summarizeShopping', () => {
     // The typed row arrives first and establishes the line unlinked; the linked reagent that follows
     // takes over the canonical name and icon, even though the line already had a (wrong-cased) name.
     const { lines } = summarizeShopping([itemRow('t', 'copper bar', 1), recipeBlock('a', 'Smelt Bronze', 2)], {});
-    expect(lines[0]).toMatchObject({ name: 'Copper Bar', icon: 'https://foreverdb.net/icons/133216.webp', quantity: 2 });
+    expect(lines[0]).toMatchObject({ name: 'Copper Bar', icon: 'https://foreverdb.net/icons/133216.webp', itemId: 2840, quantity: 2 });
   });
 
   it('a linked line first, then a typed duplicate: the spelling stays the linked one', () => {

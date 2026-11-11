@@ -5,6 +5,17 @@
   background: var(--color-leather-dark);
 }
 
+/* Click target for the item tooltip; it sits where the bare icon would. */
+.trigger {
+  display: inline-flex;
+  flex: none;
+  cursor: help;
+}
+
+.trigger .icon {
+  cursor: inherit;
+}
+
 /* Framed square, like a bag slot: recipe and item rows. */
 .row {
   width: 30px;

@@ -3,6 +3,7 @@ import userEvent from '@testing-library/user-event';
 import { afterEach, beforeEach, describe, expect, it, vi, type Mock, type MockInstance } from 'vitest';
 import { App } from '@/App';
 import recipesUrl from '@/data/recipes.json?url';
+import { clearItemDetailCache } from '@/foreverdb/itemDetail';
 import type { ForeverItem } from '@/foreverdb/itemSearch';
 import { PREFERENCES_KEY, type Preferences } from '@/market/preferences';
 import type { AuctionPriceList } from '@/prices/auctionPrices';
@@ -155,6 +156,7 @@ describe('App', () => {
     vi.useRealTimers();
     vi.restoreAllMocks();
     vi.unstubAllGlobals();
+    clearItemDetailCache();
   });
 
   it('starts with one empty recipe field and an empty shopping list', async () => {
@@ -649,6 +651,52 @@ describe('App', () => {
       'Add Bronze Tube to the market list',
     ]);
     expect(within(list()).getByText('Nothing to buy yet.')).toBeInTheDocument();
+  });
+
+  it('opens a reagent tooltip from a market analysis card without adding the recipe', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(MARKET));
+    const copperBarDetail = {
+      data: {
+        id: 2840,
+        name: 'Copper Bar',
+        qualityId: 1,
+        itemLevel: 10,
+        requiredLevel: 0,
+        classId: 7,
+        subclass: 'Metal & Stone',
+        inventoryTypeId: 0,
+        inventoryType: 'Non-equippable',
+        stats: [],
+        damage: null,
+        speed: null,
+        bonding: null,
+        sellPrice: 10,
+        unique: false,
+        effects: [],
+      },
+    };
+    fetchMock.mockImplementation(async (input) => {
+      const url = String(input);
+      if (url === recipesUrl) return answerRecipes();
+      if (url.startsWith('/api/items?')) return answerItemSearch();
+      if (url === '/api/items/2840') return jsonResponse(copperBarDetail);
+      if (url === '/api/auction-prices') return answerAuctionPrices();
+      throw new Error(`Unexpected request: ${url}`);
+    });
+    const { user } = await renderApp();
+    await openAnalysis(user);
+    const card = screen.getByRole('button', { name: 'Add Smelt Bronze to the market list' });
+    const reagent = within(card).getByRole('listitem', { name: 'Copper Bar' });
+    const icon = reagent.querySelector('img');
+    if (icon === null) throw new Error('Copper Bar icon not found');
+    await user.click(icon);
+    expect(await screen.findByRole('tooltip')).toBeInTheDocument();
+    expect(within(screen.getByRole('tooltip')).getByText('Copper Bar')).toBeInTheDocument();
+    expect(cards()).toEqual([
+      'Add Smelt Bronze to the market list',
+      'Add Rough Copper Vest to the market list',
+      'Add Bronze Tube to the market list',
+    ]);
   });
 
   it('filters by profession on both tabs and by minimum profit, and remembers them', async () => {

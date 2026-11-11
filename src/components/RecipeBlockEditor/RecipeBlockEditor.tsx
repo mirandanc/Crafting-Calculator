@@ -58,6 +58,7 @@ export function RecipeBlockEditor({
     label: match.name,
     detail: match.profession,
     icon: match.icon,
+    item: match.makes === null ? null : { itemId: match.makes.itemId, name: match.makes.name },
   }));
   const plan = planCrafts(block.wanted, recipe?.makes ?? null);
   const note = recipe === null ? null : craftNote(plan, recipe.makes);
@@ -72,7 +73,11 @@ export function RecipeBlockEditor({
 
   return (
     <article className={styles.block} aria-label={`Recipe ${position}`}>
-      <EntryNumeral position={position} icon={recipe?.icon ?? null} />
+      <EntryNumeral
+        position={position}
+        icon={recipe?.icon ?? null}
+        item={recipe?.makes ? { itemId: recipe.makes.itemId, name: recipe.makes.name } : null}
+      />
       <Autocomplete
         label="Recipe"
         value={query}
