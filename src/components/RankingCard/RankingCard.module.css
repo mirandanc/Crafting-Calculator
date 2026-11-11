@@ -81,6 +81,15 @@
   gap: 4px 6px;
 }
 
+.sales {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px 6px;
+  font-size: 16px;
+  color: var(--color-ink-soft);
+}
+
 .reagents {
   display: grid;
   gap: 4px;
