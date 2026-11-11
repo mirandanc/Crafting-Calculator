@@ -16,7 +16,7 @@ type RankingCardProps = {
  * and the figures are read as the button's description.
  */
 export function RankingCard({ ranked, onAdd }: RankingCardProps) {
-  const { recipe, reagents, revenue, cost, profit, margin, salesPerDay, profitPerDay } = ranked;
+  const { recipe, reagents, revenue, cost, profit, margin, salesPerDay } = ranked;
   const detailsId = useId();
   return (
     <li className={styles.item}>
@@ -62,13 +62,6 @@ export function RankingCard({ ranked, onAdd }: RankingCardProps) {
               <MoneyText copper={cost} />
             </span>
           </span>{' '}
-          {profitPerDay !== null && (
-            <>
-              <span className={styles.sales}>
-                ≈ <MoneyText copper={profitPerDay} />/day
-              </span>{' '}
-            </>
-          )}
           {/* The spaces between parts only matter to the description; flex and grid layouts drop them. */}
           <span role="list" className={styles.reagents}>
             {reagents.map((reagent) => (
