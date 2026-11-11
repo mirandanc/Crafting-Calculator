@@ -40,8 +40,8 @@ the recipes most worth crafting right now.
 - The margin is the profit after the auction house's 5% cut, divided by the reagent cost.
 - Reagents use the cheaper of the auction and vendor price; a vendor price is tagged "Vendor".
 - Recipes with a cooldown are left out, and so are results where fewer than 5 are listed for sale.
-- The open tab, the minimum profit and the chosen professions are saved in the browser. The professions also narrow
-  the recipe search on the Market list.
+- The minimum profit per craft starts at 50c. The open tab, the minimum profit and the chosen professions are saved
+  in the browser. The professions also narrow the recipe search on the Market list.
 
 ## Deployment
 
