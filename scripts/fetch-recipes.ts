@@ -74,24 +74,25 @@ export type ApiVendorLine = {
   /** Copper for one purchase of `stack` items. */
   price: number;
   stack: number;
-  /** One item's share of `price`; may be fractional. */
-  pricePerItem: number;
+  /** One item's share of `price`; may be fractional, and may be missing. */
+  pricePerItem?: number;
   limited: boolean;
-  /** Present when the vendor asks for something besides gold (Merchant's Favor, items). */
-  costs?: unknown[];
+  /** A non-empty list when the vendor asks for something besides gold (Merchant's Favor, items). */
+  costs?: unknown;
 };
 
+/** side and sells may be missing on an odd record; the run must not crash on one. */
 export type ApiVendor = {
-  side: string;
-  sells: ApiVendorLine[];
+  side?: string;
+  sells?: ApiVendorLine[];
 };
 
 type ApiVendorAnswer = {
-  data: ApiVendor;
+  data?: ApiVendor;
 };
 
-type ApiSpell = {
-  data: { cooldownMs: number | null };
+export type ApiSpell = {
+  data?: { cooldownMs?: number | null };
 };
 
 /** What buildCatalog adds besides the recipes and icons. */
@@ -180,9 +181,27 @@ export function productSpellIdsOf(professions: ProfessionRecipes[]): number[] {
     .map((recipe) => recipe.id);
 }
 
-export function sellsToAlliance(side: string): boolean {
+/** A missing side counts as selling: vendor summaries are filtered by side before their details are read. */
+export function sellsToAlliance(side: string | undefined): boolean {
+  if (typeof side !== 'string') return true;
   const normalized = side.toLowerCase();
   return normalized === 'alliance' || normalized === 'both';
+}
+
+/** A missing spell, a missing data block or a null cooldown all count as no cooldown. */
+export function hasCooldown(spell: ApiSpell | null): boolean {
+  return (spell?.data?.cooldownMs ?? 0) > 0;
+}
+
+function isGoldOnly(line: ApiVendorLine): boolean {
+  return Array.isArray(line.costs) ? line.costs.length === 0 : line.costs === undefined;
+}
+
+/** One item's copper, from pricePerItem or else price / stack; null when neither is a finite number. */
+function pricePerItemOf(line: ApiVendorLine): number | null {
+  if (line.pricePerItem !== undefined && Number.isFinite(line.pricePerItem)) return line.pricePerItem;
+  if (Number.isFinite(line.price) && Number.isFinite(line.stack) && line.stack > 0) return line.price / line.stack;
+  return null;
 }
 
 /** Cheapest copper per wanted item over gold-only, unlimited lines of Alliance and neutral vendors. */
@@ -190,9 +209,11 @@ export function vendorPricesOf(vendors: ApiVendor[], wanted: Set<number>): Recor
   const cheapest = new Map<number, number>();
   for (const vendor of vendors) {
     if (!sellsToAlliance(vendor.side)) continue;
-    for (const line of vendor.sells) {
-      if (!wanted.has(line.itemId) || line.limited || (line.costs?.length ?? 0) > 0 || !(line.price > 0)) continue;
-      const copper = Math.max(1, Math.round(line.pricePerItem));
+    for (const line of vendor.sells ?? []) {
+      if (!wanted.has(line.itemId) || line.limited || !isGoldOnly(line) || !(line.price > 0)) continue;
+      const perItem = pricePerItemOf(line);
+      if (perItem === null) continue;
+      const copper = Math.max(1, Math.round(perItem));
       const known = cheapest.get(line.itemId);
       if (known === undefined || copper < known) cheapest.set(line.itemId, copper);
     }
@@ -350,7 +371,7 @@ async function main(): Promise<void> {
   const cooldowns = new Set<number>();
   for (const [index, spellId] of spellIds.entries()) {
     const spell = (await get(`/api/v1/spells/${spellId}`)) as ApiSpell | null;
-    if (spell !== null && (spell.data.cooldownMs ?? 0) > 0) cooldowns.add(spellId);
+    if (hasCooldown(spell)) cooldowns.add(spellId);
     if ((index + 1) % 100 === 0) console.log(`  ${index + 1}/${spellIds.length}`);
   }
 
@@ -359,7 +380,7 @@ async function main(): Promise<void> {
   const vendors: ApiVendor[] = [];
   for (const [index, summary] of summaries.entries()) {
     const answer = (await get(`/api/v1/vendors/${summary.id}`)) as ApiVendorAnswer | null;
-    if (answer !== null) vendors.push(answer.data);
+    if (answer?.data !== undefined) vendors.push(answer.data);
     if ((index + 1) % 100 === 0) console.log(`  ${index + 1}/${summaries.length}`);
   }
   const vendorPrices = vendorPricesOf(vendors, new Set(reagentIds));

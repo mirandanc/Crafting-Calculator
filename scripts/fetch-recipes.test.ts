@@ -5,6 +5,7 @@ import {
   createApiGet,
   fetchProfession,
   fetchVendorSummaries,
+  hasCooldown,
   isForeverRecipe,
   productSpellIdsOf,
   reagentIdsOf,
@@ -13,6 +14,7 @@ import {
   vendorPricesOf,
   type ApiRecipe,
   type ApiVendor,
+  type ApiVendorLine,
   type CatalogExtras,
   type ProfessionRecipes,
 } from '@scripts/fetch-recipes';
@@ -312,10 +314,14 @@ describe('sellsToAlliance', () => {
     expect(sellsToAlliance('Both')).toBe(true);
     expect(sellsToAlliance('Horde')).toBe(false);
   });
+
+  it('accepts a vendor whose side is missing (the summaries were already filtered by side)', () => {
+    expect(sellsToAlliance(undefined)).toBe(true);
+  });
 });
 
 describe('vendorPricesOf', () => {
-  const line = (itemId: number, pricePerItem: number, extra: Partial<ApiVendor['sells'][number]> = {}) => ({
+  const line = (itemId: number, pricePerItem: number, extra: Partial<ApiVendorLine> = {}) => ({
     itemId,
     price: pricePerItem,
     stack: 1,
@@ -323,7 +329,7 @@ describe('vendorPricesOf', () => {
     limited: false,
     ...extra,
   });
-  const vendor = (side: string, sells: ApiVendor['sells']): ApiVendor => ({ side, sells });
+  const vendor = (side: string, sells: ApiVendorLine[]): ApiVendor => ({ side, sells });
 
   it('keeps the cheapest price per wanted item across Alliance and neutral vendors', () => {
     const vendors = [vendor('Alliance', [line(2320, 10), line(1, 5)]), vendor('both', [line(2320, 8)])];
@@ -342,6 +348,52 @@ describe('vendorPricesOf', () => {
   it('rounds a stack share to whole copper, never below 1', () => {
     const vendors = [vendor('Alliance', [line(3371, 0.2, { price: 1, stack: 5 }), line(4289, 12.6, { price: 63, stack: 5 })])];
     expect(vendorPricesOf(vendors, new Set([3371, 4289]))).toEqual({ '3371': 1, '4289': 13 });
+  });
+
+  it('treats a vendor without stock as selling nothing', () => {
+    const vendors: ApiVendor[] = [{ side: 'Alliance' }, vendor('Alliance', [line(2320, 9)])];
+    expect(vendorPricesOf(vendors, new Set([2320]))).toEqual({ '2320': 9 });
+  });
+
+  it('counts a vendor without a side', () => {
+    expect(vendorPricesOf([{ sells: [line(2320, 9)] }], new Set([2320]))).toEqual({ '2320': 9 });
+  });
+
+  it('falls back to price / stack when pricePerItem is not a number, else skips the line', () => {
+    const vendors = [
+      vendor('Alliance', [
+        line(2320, Number.NaN, { price: 50, stack: 5 }),
+        line(2321, Number.NaN, { price: 50, stack: 0 }),
+        { itemId: 2678, price: 40, stack: 2, limited: false },
+        { itemId: 2692, price: Number.POSITIVE_INFINITY, stack: 1, limited: false },
+      ]),
+    ];
+    expect(vendorPricesOf(vendors, new Set([2320, 2321, 2678, 2692]))).toEqual({ '2320': 10, '2678': 20 });
+  });
+
+  it('treats a line as gold-only only when costs is missing or an empty list', () => {
+    const vendors = [
+      vendor('Alliance', [
+        line(2320, 3, { costs: [] }),
+        line(2321, 3, { costs: { name: "Merchant's Favor" } }),
+        line(2322, 3, { costs: null }),
+      ]),
+    ];
+    expect(vendorPricesOf(vendors, new Set([2320, 2321, 2322]))).toEqual({ '2320': 3 });
+  });
+});
+
+describe('hasCooldown', () => {
+  it('reads a positive cooldown', () => {
+    expect(hasCooldown({ data: { cooldownMs: 342_000_000 } })).toBe(true);
+  });
+
+  it('counts a missing spell, missing data or a null or zero cooldown as none', () => {
+    expect(hasCooldown(null)).toBe(false);
+    expect(hasCooldown({})).toBe(false);
+    expect(hasCooldown({ data: {} })).toBe(false);
+    expect(hasCooldown({ data: { cooldownMs: null } })).toBe(false);
+    expect(hasCooldown({ data: { cooldownMs: 0 } })).toBe(false);
   });
 });
 
