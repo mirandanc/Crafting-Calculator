@@ -15,6 +15,7 @@ const MARKET: RankingMarket = {
   auction: { '2840': 113, '3576': 250, '2841': 900, '10421': 2000, '4371': 5000 },
   quantities: { '2841': 10, '10421': 10, '4371': 10 },
   sales: null,
+  salesDays: null,
   vendor: {},
 };
 
@@ -145,7 +146,7 @@ const SALES: Record<string, ItemSales> = {
   '10421': { perDay: 20, price: 1500 },
   '4371': { perDay: 5, price: 5000 },
 };
-const SOLD: RankingMarket = { ...MARKET, sales: SALES };
+const SOLD: RankingMarket = { ...MARKET, sales: SALES, salesDays: 3.4 };
 
 describe('rankRecipes with estimated sales', () => {
   it('ranks by profit per day, selling at the lower of the auction and the average sale price', () => {
@@ -205,6 +206,16 @@ describe('rankRecipes with estimated sales', () => {
     ]);
     const noVestSales: Record<string, ItemSales> = { '2841': SALES['2841'], '4371': SALES['4371'] };
     expect(names(TEST_CATALOG, { ...SOLD, sales: noVestSales }, [], 0, 'profitPerDay')).toEqual(['Bronze Tube', 'Smelt Bronze']);
+  });
+
+  it('needs at least 5 counted sales before trusting the rate', () => {
+    const smeltWith = (perDay: number, salesDays: number): string[] =>
+      names(TEST_CATALOG, { ...SOLD, sales: { '2841': { perDay, price: 1000 } }, salesDays }, [], 0, 'profitPerDay');
+    // 1 sale in an hour reads as 24 a day, but it is still a single sale.
+    expect(smeltWith(24, 1 / 24)).toEqual([]);
+    expect(smeltWith(6, 1)).toEqual(['Smelt Bronze']);
+    // 120 a day over an hour is 5 sales, despite the float rounding of 120 × 1/24.
+    expect(smeltWith(120, 1 / 24)).toEqual(['Smelt Bronze']);
   });
 
   it('still hides results with fewer than 5 for sale', () => {

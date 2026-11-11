@@ -110,6 +110,7 @@ export function MarketAnalysis({
               auction: auction.list.prices,
               quantities: auction.list.quantities ?? null,
               sales: auction.list.sales ?? null,
+              salesDays: auction.list.salesDays ?? null,
               vendor: catalog.vendorPrices,
             },
             { professions, minProfit: minCopper },

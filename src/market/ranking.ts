@@ -11,6 +11,8 @@ export type RankingMarket = {
   quantities: Record<string, number> | null;
   /** Estimated sales per item id; null until the auction job has compared two snapshots. */
   sales: Record<string, ItemSales> | null;
+  /** Days of snapshots the sales cover; null while sales are unknown. */
+  salesDays: number | null;
   vendor: ItemPrices;
 };
 
@@ -80,6 +82,16 @@ function rankedReagents(recipe: CatalogRecipe, items: Record<string, CatalogItem
   return reagents;
 }
 
+/**
+ * At least MIN_SALES_PER_DAY a day, from at least MIN_SALES_PER_DAY counted sales: early on, one sale in an hour
+ * reads as 24 a day. Without the covered days the rate can't be trusted.
+ */
+function trustedRate(perDay: number, salesDays: number | null): boolean {
+  if (salesDays === null || perDay < MIN_SALES_PER_DAY) return false;
+  // perDay × salesDays gives back the counted sales, give or take float rounding.
+  return perDay * salesDays >= MIN_SALES_PER_DAY - 1e-9;
+}
+
 function rankOne(recipe: CatalogRecipe, catalog: RecipeCatalog, market: RankingMarket): RankedRecipe | null {
   if (recipe.makes === null || recipe.cooldown === true || recipe.reagents.length === 0) return null;
   const key = String(recipe.makes.itemId);
@@ -90,7 +102,7 @@ function rankOne(recipe: CatalogRecipe, catalog: RecipeCatalog, market: RankingM
   let salesPerDay: number | null = null;
   if (market.sales !== null) {
     const sales: ItemSales | undefined = market.sales[key];
-    if (sales === undefined || sales.perDay < MIN_SALES_PER_DAY) return null;
+    if (sales === undefined || !trustedRate(sales.perDay, market.salesDays)) return null;
     // Today's listings may sit above what buyers actually paid.
     sellUnit = Math.min(auctionUnit, sales.price);
     salesPerDay = sales.perDay;
