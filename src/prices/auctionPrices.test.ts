@@ -42,6 +42,15 @@ describe('parseAuctionPriceList', () => {
     expect(parseAuctionPriceList({ ...LIST, house: { ...LIST.house, id: 110.5 } })).toBeNull();
     expect(parseAuctionPriceList({ ...LIST, house: { ...LIST.house, ruleset: 1.5 } })).toBeNull();
   });
+
+  it('keeps the quantities for sale when the list has them, dropping bad ones', () => {
+    const parsed = parseAuctionPriceList({ ...LIST, quantities: { '2840': 40, '3576': 0, x: 3, '9': 2.5 } });
+    expect(parsed?.quantities).toEqual({ '2840': 40 });
+  });
+
+  it('leaves quantities out for a list saved before they existed', () => {
+    expect(parseAuctionPriceList(LIST)).not.toHaveProperty('quantities');
+  });
 });
 
 describe('auctionPricesByKey', () => {

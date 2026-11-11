@@ -14,6 +14,8 @@ export type AuctionPriceList = {
   house: AuctionHouse;
   /** Market value in copper per Blizzard (= ForeverDB) item id. */
   prices: Record<string, number>;
+  /** Total quantity for sale per item id; missing from lists saved before it existed. */
+  quantities?: Record<string, number>;
 };
 
 /** Auction copper per price key (`name:<lower-case name>`), for the names on the page that are linked to an item. */
@@ -54,6 +56,14 @@ function isWholeNumber(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value);
 }
 
+function parseQuantities(value: UnknownRecord): Record<string, number> {
+  const quantities: Record<string, number> = {};
+  for (const [itemId, quantity] of Object.entries(value)) {
+    if (/^\d+$/.test(itemId) && isWholeNumber(quantity) && quantity > 0) quantities[itemId] = quantity;
+  }
+  return quantities;
+}
+
 export function parseAuctionPriceList(value: unknown): AuctionPriceList | null {
   if (!isRecord(value) || typeof value.updatedAt !== 'string' || Number.isNaN(Date.parse(value.updatedAt))) return null;
   if (!isRecord(value.house) || !isRecord(value.prices)) return null;
@@ -63,7 +73,9 @@ export function parseAuctionPriceList(value: unknown): AuctionPriceList | null {
   for (const [itemId, copper] of Object.entries(value.prices)) {
     if (/^\d+$/.test(itemId) && isWholeNumber(copper) && copper > 0 && copper <= GOLD_CAP_COPPER) prices[itemId] = copper;
   }
-  return { updatedAt: value.updatedAt, house: { ruleset, id, name }, prices };
+  const list: AuctionPriceList = { updatedAt: value.updatedAt, house: { ruleset, id, name }, prices };
+  if (isRecord(value.quantities)) list.quantities = parseQuantities(value.quantities);
+  return list;
 }
 
 function linkedItems(entries: Entry[]): LinkedPriceKey[] {

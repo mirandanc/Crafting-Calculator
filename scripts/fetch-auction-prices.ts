@@ -1,7 +1,7 @@
 /**
  * Downloads one WoW Forever auction house from the Blizzard API, works out a market value per item,
- * and writes auction-prices.json. The GitHub workflow .github/workflows/auction-prices.yml runs it three
- * times a day and stores the file in Cloudflare KV.
+ * and writes auction-prices.json. The GitHub workflow .github/workflows/auction-prices.yml runs it twice
+ * a day and stores the file in Cloudflare KV.
  *
  * Run locally with `npm run fetch:auction-prices` (reads BLIZZARD_CLIENT_ID / BLIZZARD_CLIENT_SECRET
  * from .env), or `npm run auction:houses` to list the Alliance houses.
@@ -176,8 +176,18 @@ export function createBlizzardClient(clientId: string, clientSecret: string, dep
   };
 }
 
+/** Total quantity for sale per item id: the ranking hides results with too few listed. */
+export function totalQuantities(listings: Listing[]): Record<string, number> {
+  const quantities: Record<string, number> = {};
+  for (const listing of listings) {
+    const key = String(listing.itemId);
+    quantities[key] = (quantities[key] ?? 0) + listing.quantity;
+  }
+  return quantities;
+}
+
 export function buildPriceList(listings: Listing[], house: AuctionHouse, now: Date): AuctionPriceList {
-  return { updatedAt: now.toISOString(), house, prices: marketValues(listings) };
+  return { updatedAt: now.toISOString(), house, prices: marketValues(listings), quantities: totalQuantities(listings) };
 }
 
 export function checkPriceList(list: AuctionPriceList): void {
