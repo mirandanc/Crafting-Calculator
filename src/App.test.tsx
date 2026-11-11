@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock, type MockIn
 import { App } from '@/App';
 import recipesUrl from '@/data/recipes.json?url';
 import type { ForeverItem } from '@/foreverdb/itemSearch';
+import { PREFERENCES_KEY, type Preferences } from '@/market/preferences';
 import type { AuctionPriceList } from '@/prices/auctionPrices';
 import { loadRecipeCatalog } from '@/recipes/loadRecipeCatalog';
 import { saveSheet, STORAGE_KEY } from '@/sheet/storage';
@@ -570,5 +571,35 @@ describe('App', () => {
     expect(screen.getByText('Auction prices unavailable')).toBeInTheDocument();
     await pickRecipe(user, 1, 'smelt', /Smelt Bronze/);
     expect(screen.getByLabelText('Copper Bar price copper')).toHaveValue(null);
+  });
+
+  it('flips the left page between the market list and the market analysis, and remembers the tab', async () => {
+    const { user, unmount } = await renderApp();
+    expect(screen.getByRole('tab', { name: 'Market list' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('tabpanel', { name: 'Market list' })).toBeInTheDocument();
+    await user.click(screen.getByRole('tab', { name: 'Market analysis' }));
+    expect(screen.getByRole('tabpanel', { name: 'Market analysis' })).toBeInTheDocument();
+    expect(screen.queryByRole('article', { name: 'Recipe 1' })).toBeNull();
+    unmount();
+    await renderApp();
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('narrows the recipe search to the professions picked', async () => {
+    const { user } = await renderApp();
+    await user.click(screen.getByText('All professions'));
+    await user.click(screen.getByRole('checkbox', { name: 'Mining' }));
+    await user.type(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' }), 'bronze');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Smelt BronzeMining']);
+  });
+
+  it('ignores saved professions the recipe book no longer has', async () => {
+    const saved: Preferences = { tab: 'list', professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50) };
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify(saved));
+    const { user } = await renderApp();
+    // Three saved names would read "3 professions"; only Mining is still in the book.
+    expect(within(screen.getByRole('group', { name: 'Professions' })).getByText('Mining', { selector: 'summary span' })).toBeInTheDocument();
+    await user.type(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' }), 'bronze');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Smelt BronzeMining']);
   });
 });

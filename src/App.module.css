@@ -44,6 +44,8 @@
 .book {
   position: relative;
   z-index: 1;
+  /* Room above the book for the bookmarks, which stick out of its top edge. */
+  margin-top: 30px;
   width: 100%;
   max-width: 1240px;
   padding: 18px;
@@ -79,8 +81,26 @@
   }
 }
 
+/* The left page turns in from the spine when a bookmark is chosen. */
+.turn {
+  transform-origin: right center;
+  animation: turn 0.5s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+
+@keyframes turn {
+  from {
+    transform: perspective(1800px) rotateY(-70deg);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .book {
+  .book,
+  .turn {
     animation: none;
   }
 }

@@ -8,6 +8,10 @@ type PageProps = {
   label: string;
   heading: string;
   children: ReactNode;
+  id?: string;
+  className?: string;
+  /** Set when the page is the panel of the book's bookmarks. */
+  role?: 'tabpanel';
 };
 
 type FlourishProps = {
@@ -36,9 +40,9 @@ function Flourish({ className }: FlourishProps) {
   );
 }
 
-export function Page({ side, label, heading, children }: PageProps) {
+export function Page({ side, label, heading, children, id, className, role }: PageProps) {
   return (
-    <section className={`${styles.page} ${styles[side]}`} aria-label={label}>
+    <section id={id} role={role} className={[styles.page, styles[side], className].filter(Boolean).join(' ')} aria-label={label}>
       <Flourish className={styles.cornerTop} />
       <Flourish className={styles.cornerBottom} />
       <div className={styles.heading}>

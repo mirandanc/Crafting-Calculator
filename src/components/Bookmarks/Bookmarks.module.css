@@ -1,0 +1,59 @@
+.bookmarks {
+  position: absolute;
+  top: 0;
+  left: 52px;
+  z-index: 2;
+  display: flex;
+  gap: 10px;
+  transform: translateY(-100%);
+}
+
+.bookmark {
+  position: relative;
+  height: 40px;
+  padding: 8px 16px 10px;
+  border: 0;
+  border-radius: 6px 6px 0 0;
+  background: linear-gradient(180deg, var(--color-ribbon-edge), var(--color-ribbon-dark));
+  box-shadow: inset 0 0 0 1px rgba(0, 0, 0, 0.25);
+  font-family: var(--font-caps);
+  font-size: 17px;
+  letter-spacing: 0.05em;
+  color: rgba(246, 231, 196, 0.75);
+  transform: translateY(8px);
+  transition: transform 0.2s, color 0.2s;
+}
+
+.bookmark:hover {
+  color: var(--color-paper-cream);
+  transform: translateY(4px);
+}
+
+.active,
+.active:hover {
+  background: linear-gradient(180deg, var(--color-ribbon), var(--color-ribbon-dark));
+  color: var(--color-paper-cream);
+  transform: none;
+}
+
+.bookmark:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .bookmark {
+    transition: none;
+  }
+}
+
+@media (max-width: 520px) {
+  .bookmarks {
+    left: 18px;
+    gap: 6px;
+  }
+
+  .bookmark {
+    padding: 8px 10px 10px;
+    font-size: 15px;
+  }
+}
