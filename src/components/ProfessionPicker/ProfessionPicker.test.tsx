@@ -24,8 +24,19 @@ describe('ProfessionPicker', () => {
     await userEvent.click(screen.getByRole('checkbox', { name: 'Tailoring' }));
     expect(onChange).toHaveBeenLastCalledWith([]);
     rerender(<ProfessionPicker professions={PROFESSIONS} selected={['Mining']} onChange={onChange} />);
-    await userEvent.click(screen.getByRole('button', { name: 'Show all professions' }));
+    await userEvent.click(screen.getByRole('button', { name: 'Clear, show all professions' }));
     expect(onChange).toHaveBeenLastCalledWith([]);
+  });
+
+  it('closes on Escape and hands focus back to the summary', async () => {
+    const { container } = render(<ProfessionPicker professions={PROFESSIONS} selected={[]} onChange={vi.fn()} />);
+    const details = container.querySelector('details');
+    await userEvent.click(screen.getByText('Professions'));
+    expect(details).toHaveAttribute('open');
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Mining' }));
+    await userEvent.keyboard('{Escape}');
+    expect(details).not.toHaveAttribute('open');
+    expect(container.querySelector('summary')).toHaveFocus();
   });
 
   it('is disabled until the professions are known', () => {
