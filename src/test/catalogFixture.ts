@@ -8,6 +8,7 @@ export const TEST_CATALOG: RecipeCatalog = {
     '3576': { name: 'Tin Bar', icon: 'https://foreverdb.net/icons/133219.webp' },
     '247786': { name: 'Mote of Magic', icon: null },
   },
+  vendorPrices: {},
   recipes: [
     {
       id: 2659,

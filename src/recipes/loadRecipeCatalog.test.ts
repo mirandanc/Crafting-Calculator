@@ -35,4 +35,11 @@ describe('loadRecipeCatalog', () => {
     await expect(loadRecipeCatalog()).rejects.toThrow('Recipe catalog request failed: 404');
     await expect(loadRecipeCatalog()).resolves.toEqual(TEST_CATALOG);
   });
+
+  it('gives a catalog written before vendor prices existed empty vendor prices', async () => {
+    // JSON.stringify drops the undefined field, like a file from before vendor prices.
+    fetchMock.mockResolvedValueOnce(new Response(JSON.stringify({ ...TEST_CATALOG, vendorPrices: undefined })));
+    const loadRecipeCatalog = await freshLoader();
+    expect((await loadRecipeCatalog()).vendorPrices).toEqual({});
+  });
 });

@@ -6,7 +6,9 @@ let pending: Promise<RecipeCatalog> | null = null;
 async function fetchCatalog(): Promise<RecipeCatalog> {
   const response = await fetch(recipesUrl);
   if (!response.ok) throw new Error(`Recipe catalog request failed: ${response.status}`);
-  return (await response.json()) as RecipeCatalog;
+  const catalog = (await response.json()) as RecipeCatalog;
+  // Files written before vendor prices existed have none.
+  return { ...catalog, vendorPrices: catalog.vendorPrices ?? {} };
 }
 
 /** Loads src/data/recipes.json once per page; a failed load is retried on the next call. */

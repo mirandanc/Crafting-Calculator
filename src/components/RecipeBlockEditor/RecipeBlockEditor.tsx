@@ -49,7 +49,7 @@ export function RecipeBlockEditor({
   // The search text is local: a picked recipe stays until another one is picked, and leaving the
   // field puts its name back.
   const [query, setQuery] = useState(recipe?.name ?? '');
-  const matches = useMemo(() => (catalog === null ? [] : searchRecipes(catalog, query)), [catalog, query]);
+  const matches = useMemo(() => (catalog === null ? [] : searchRecipes(catalog, query, [])), [catalog, query]);
   const options: SearchOption[] = matches.map((match) => ({
     key: String(match.id),
     label: match.name,

@@ -4,12 +4,20 @@ import {
   buildCatalog,
   createApiGet,
   fetchProfession,
+  fetchVendorSummaries,
   isForeverRecipe,
+  productSpellIdsOf,
   reagentIdsOf,
   retryDelayMs,
+  sellsToAlliance,
+  vendorPricesOf,
   type ApiRecipe,
+  type ApiVendor,
+  type CatalogExtras,
   type ProfessionRecipes,
 } from '@scripts/fetch-recipes';
+
+const NO_EXTRAS: CatalogExtras = { cooldowns: new Set(), vendorPrices: {} };
 
 type FakeClock = {
   now: () => number;
@@ -72,13 +80,14 @@ describe('buildCatalog', () => {
   ]);
 
   it('trims recipes to what the UI needs and records the profession', () => {
-    const catalog = buildCatalog([mining(apiRecipe())], icons, '1.60.1.70862');
+    const catalog = buildCatalog([mining(apiRecipe())], icons, '1.60.1.70862', NO_EXTRAS);
     expect(catalog).toEqual({
       build: '1.60.1.70862',
       items: {
         '2840': { name: 'Copper Bar', icon: 'https://foreverdb.net/icons/133216.webp' },
         '3576': { name: 'Tin Bar', icon: null },
       },
+      vendorPrices: {},
       recipes: [
         {
           id: 2659,
@@ -97,7 +106,7 @@ describe('buildCatalog', () => {
 
   it('drops non-Forever recipes and their reagents', () => {
     const leftover = apiRecipe({ spellId: 1, name: 'Leftover', speculation: true, reagents: [{ itemId: 9, name: 'Odd', count: 1 }] });
-    const catalog = buildCatalog([mining(apiRecipe(), leftover)], icons, 'b');
+    const catalog = buildCatalog([mining(apiRecipe(), leftover)], icons, 'b', NO_EXTRAS);
     expect(catalog.recipes.map((recipe) => recipe.id)).toEqual([2659]);
     expect(Object.keys(catalog.items)).toEqual(['2840', '3576']);
   });
@@ -111,6 +120,7 @@ describe('buildCatalog', () => {
       ],
       icons,
       'b',
+      NO_EXTRAS,
     );
     expect(catalog.recipes).toHaveLength(1);
     expect(catalog.recipes[0].profession).toBe('Leatherworking');
@@ -121,12 +131,13 @@ describe('buildCatalog', () => {
       [mining(apiRecipe({ spellId: 3, name: 'Smelt Tin' }), apiRecipe({ spellId: 2, name: 'Smelt Copper' }))],
       icons,
       'b',
+      NO_EXTRAS,
     );
     expect(catalog.recipes.map((recipe) => recipe.name)).toEqual(['Smelt Copper', 'Smelt Tin']);
   });
 
   it('gives an item with no fetched icon a null icon', () => {
-    const catalog = buildCatalog([mining(apiRecipe())], new Map(), 'b');
+    const catalog = buildCatalog([mining(apiRecipe())], new Map(), 'b', NO_EXTRAS);
     expect(catalog.items['2840'].icon).toBeNull();
   });
 });
@@ -229,6 +240,22 @@ describe('createApiGet', () => {
     expect(await get('/api/v1/items/99999999')).toBeNull();
   });
 
+  it('resolves null for a 404 on a spell lookup', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi.fn(async () => new Response('{}', { status: 404 }));
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    expect(await get('/api/v1/spells/1')).toBeNull();
+  });
+
+  it('resolves null for a 404 on a vendor lookup', async () => {
+    const clock = createClock(1_000_000);
+    const fetchFn = vi.fn(async () => new Response('{}', { status: 404 }));
+    const get = createApiGet('key', { fetch: fetchFn, sleep: clock.sleep, now: clock.now });
+
+    expect(await get('/api/v1/vendors/1')).toBeNull();
+  });
+
   it('throws a clear error on a 404 for a non-item path', async () => {
     const clock = createClock(1_000_000);
     const fetchFn = vi.fn(async () => new Response('{}', { status: 404 }));
@@ -275,5 +302,86 @@ describe('fetchProfession', () => {
       .mockResolvedValueOnce({ data: { recipes: [] }, meta: { build: 'b', next: loopingPath } });
 
     await expect(fetchProfession(get, profession)).rejects.toThrow(/repeated/);
+  });
+});
+
+describe('sellsToAlliance', () => {
+  it('accepts Alliance and neutral vendors, in any case', () => {
+    expect(sellsToAlliance('Alliance')).toBe(true);
+    expect(sellsToAlliance('both')).toBe(true);
+    expect(sellsToAlliance('Both')).toBe(true);
+    expect(sellsToAlliance('Horde')).toBe(false);
+  });
+});
+
+describe('vendorPricesOf', () => {
+  const line = (itemId: number, pricePerItem: number, extra: Partial<ApiVendor['sells'][number]> = {}) => ({
+    itemId,
+    price: pricePerItem,
+    stack: 1,
+    pricePerItem,
+    limited: false,
+    ...extra,
+  });
+  const vendor = (side: string, sells: ApiVendor['sells']): ApiVendor => ({ side, sells });
+
+  it('keeps the cheapest price per wanted item across Alliance and neutral vendors', () => {
+    const vendors = [vendor('Alliance', [line(2320, 10), line(1, 5)]), vendor('both', [line(2320, 8)])];
+    expect(vendorPricesOf(vendors, new Set([2320]))).toEqual({ '2320': 8 });
+  });
+
+  it('ignores Horde vendors, limited stock, non-gold costs and free lines', () => {
+    const vendors = [
+      vendor('Horde', [line(2320, 1)]),
+      vendor('Alliance', [line(2320, 2, { limited: true }), line(2320, 3, { costs: [{ name: "Merchant's Favor" }] }), line(2320, 0)]),
+      vendor('Alliance', [line(2320, 9)]),
+    ];
+    expect(vendorPricesOf(vendors, new Set([2320]))).toEqual({ '2320': 9 });
+  });
+
+  it('rounds a stack share to whole copper, never below 1', () => {
+    const vendors = [vendor('Alliance', [line(3371, 0.2, { price: 1, stack: 5 }), line(4289, 12.6, { price: 63, stack: 5 })])];
+    expect(vendorPricesOf(vendors, new Set([3371, 4289]))).toEqual({ '3371': 1, '4289': 13 });
+  });
+});
+
+describe('productSpellIdsOf', () => {
+  it('lists the kept recipes that make an item', () => {
+    const enchant = apiRecipe({ spellId: 7418, name: 'Enchant', makes: null });
+    const leftover = apiRecipe({ spellId: 1, speculation: true });
+    expect(productSpellIdsOf([mining(apiRecipe(), enchant, leftover)])).toEqual([2659]);
+  });
+});
+
+describe('fetchVendorSummaries', () => {
+  it('follows meta.next until it runs out', async () => {
+    const pages: Record<string, unknown> = {
+      '/api/v1/vendors?limit=100&offset=0': { data: [{ id: 1, side: 'Alliance' }], meta: { next: '/api/v1/vendors?limit=100&offset=100' } },
+      '/api/v1/vendors?limit=100&offset=100': { data: [{ id: 2, side: 'Horde' }], meta: { next: null } },
+    };
+    const get = vi.fn(async (path: string) => pages[path]);
+    expect(await fetchVendorSummaries(get)).toEqual([
+      { id: 1, side: 'Alliance' },
+      { id: 2, side: 'Horde' },
+    ]);
+  });
+
+  it('stops on a pagination loop', async () => {
+    const get = vi.fn(async () => ({ data: [], meta: { next: '/api/v1/vendors?limit=100&offset=0' } }));
+    await expect(fetchVendorSummaries(get)).rejects.toThrow('Pagination loop');
+  });
+});
+
+describe('buildCatalog extras', () => {
+  it('marks cooldown recipes and adds the vendor prices', () => {
+    const extras: CatalogExtras = { cooldowns: new Set([2659]), vendorPrices: { '3576': 200 } };
+    const catalog = buildCatalog([mining(apiRecipe())], new Map(), 'b', extras);
+    expect(catalog.recipes[0].cooldown).toBe(true);
+    expect(catalog.vendorPrices).toEqual({ '3576': 200 });
+  });
+
+  it('leaves the cooldown field out when there is none', () => {
+    const catalog = buildCatalog([mining(apiRecipe())], new Map(), 'b', NO_EXTRAS);
+    expect(catalog.recipes[0]).not.toHaveProperty('cooldown');
   });
 });
