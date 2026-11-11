@@ -137,9 +137,9 @@ export function formatMargin(margin: number): string {
   return `${Math.round(margin * 100).toLocaleString('en-US')}%`;
 }
 
-/** "~14 sold/day": always a whole number, rounded down. */
+/** "14 sold in a day": always a whole number, rounded down. */
 export function formatSoldPerDay(perDay: number): string {
-  return `~${Math.floor(perDay).toLocaleString('en-US')} sold/day`;
+  return `${Math.floor(perDay).toLocaleString('en-US')} sold in a day`;
 }
 
 /** How much auction history the sales come from, in whole days rounded down; "< 1 day" before the first full day. */

@@ -263,11 +263,11 @@ describe('the margin ceiling', () => {
 
 describe('formatSoldPerDay', () => {
   it('gives whole numbers, rounded down', () => {
-    expect(formatSoldPerDay(14.9)).toBe('~14 sold/day');
-    expect(formatSoldPerDay(1234.5)).toBe('~1,234 sold/day');
-    expect(formatSoldPerDay(6.43)).toBe('~6 sold/day');
-    expect(formatSoldPerDay(5)).toBe('~5 sold/day');
-    expect(formatSoldPerDay(9.96)).toBe('~9 sold/day');
+    expect(formatSoldPerDay(14.9)).toBe('14 sold in a day');
+    expect(formatSoldPerDay(1234.5)).toBe('1,234 sold in a day');
+    expect(formatSoldPerDay(6.43)).toBe('6 sold in a day');
+    expect(formatSoldPerDay(5)).toBe('5 sold in a day');
+    expect(formatSoldPerDay(9.96)).toBe('9 sold in a day');
   });
 });
 
