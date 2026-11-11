@@ -48,7 +48,8 @@ const RECIPE_CATALOG_FAILED = 'Failed to load the recipe catalog';
 
 const jsonResponse = (body: unknown): Response => new Response(JSON.stringify(body));
 
-const renderApp = async (): Promise<RenderedApp> => {
+/** Renders the App and lets its catalog and auction price answers land, staying on whichever tab it opens on. */
+const renderRaw = async (): Promise<RenderedApp> => {
   const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
   const view = render(<App />);
   // The App asked for the catalog on mount; awaiting the same cached promise lets its answer land.
@@ -60,6 +61,13 @@ const renderApp = async (): Promise<RenderedApp> => {
     await vi.advanceTimersByTimeAsync(0);
   });
   return { user, unmount: view.unmount, list: () => screen.getByRole('region', { name: 'Shopping list' }) };
+};
+
+/** Renders the App, then moves to the Market list: the tab most tests exercise. */
+const renderApp = async (): Promise<RenderedApp> => {
+  const rendered = await renderRaw();
+  await rendered.user.click(screen.getByRole('tab', { name: 'Market list' }));
+  return rendered;
 };
 
 /** Renders the App from a fresh module graph, so the recipe book is fetched again instead of read from the cache. */
@@ -75,6 +83,7 @@ const renderFreshApp = async (): Promise<User> => {
   await act(async () => {
     await vi.advanceTimersByTimeAsync(0);
   });
+  await user.click(screen.getByRole('tab', { name: 'Market list' }));
   return user;
 };
 
@@ -330,6 +339,7 @@ describe('App', () => {
     const fresh = await import('@/App');
     const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
     render(<fresh.App />);
+    await user.click(screen.getByRole('tab', { name: 'Market list' }));
     await user.type(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' }), 'smelt');
     expect(screen.queryAllByRole('option')).toHaveLength(0);
     expect(screen.queryByText(RECIPE_BOOK_FAILED)).toBeNull();
@@ -575,16 +585,22 @@ describe('App', () => {
     expect(screen.getByLabelText('Copper Bar price copper')).toHaveValue(null);
   });
 
-  it('flips the left page between the market list and the market analysis, and remembers the tab', async () => {
-    const { user, unmount } = await renderApp();
-    expect(screen.getByRole('tab', { name: 'Market list' })).toHaveAttribute('aria-selected', 'true');
+  it('flips the left page between the market list and the market analysis', async () => {
+    const { user } = await renderRaw();
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
     // The page only turns once a bookmark is picked, never on the first render.
-    expect(screen.getByRole('tabpanel', { name: 'Market list' })).not.toHaveAttribute('data-turning');
-    await user.click(screen.getByRole('tab', { name: 'Market analysis' }));
-    expect(screen.getByRole('tabpanel', { name: 'Market analysis' })).toHaveAttribute('data-turning', 'true');
-    expect(screen.queryByRole('article', { name: 'Recipe 1' })).toBeNull();
-    unmount();
-    await renderApp();
+    expect(screen.getByRole('tabpanel', { name: 'Market analysis' })).not.toHaveAttribute('data-turning');
+    await user.click(screen.getByRole('tab', { name: 'Market list' }));
+    expect(screen.getByRole('tabpanel', { name: 'Market list' })).toHaveAttribute('data-turning', 'true');
+    expect(screen.getByRole('article', { name: 'Recipe 1' })).toBeInTheDocument();
+  });
+
+  it('always opens on Market analysis, even when an old saved preference remembered the market list', async () => {
+    localStorage.setItem(
+      PREFERENCES_KEY,
+      JSON.stringify({ tab: 'list', professions: [], minProfit: { gold: 0, silver: 0, copper: 50 }, sort: 'profitPerDay' }),
+    );
+    await renderRaw();
     expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
   });
 
@@ -701,7 +717,7 @@ describe('App', () => {
 
   it('filters by profession on both tabs and by minimum profit, and remembers them', async () => {
     answerAuctionPrices.mockImplementation(async () => jsonResponse(MARKET));
-    const first = await renderApp();
+    const first = await renderRaw();
     await openAnalysis(first.user);
     await first.user.click(screen.getByText('Professions'));
     await first.user.click(screen.getByRole('checkbox', { name: 'Mining' }));
@@ -713,7 +729,7 @@ describe('App', () => {
     expect(cards()).toEqual(['Add Bronze Tube to the market list']);
     first.unmount();
 
-    const second = await renderApp();
+    const second = await renderRaw();
     expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
     expect(screen.getByLabelText('Minimum profit silver')).toHaveValue(20);
     expect(cards()).toEqual(['Add Bronze Tube to the market list']);
@@ -733,7 +749,7 @@ describe('App', () => {
   });
 
   it('ignores saved professions the recipe book no longer has', async () => {
-    const saved: Preferences = { tab: 'list', professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50), sort: 'profitPerDay' };
+    const saved: Preferences = { professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50), sort: 'profitPerDay' };
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify(saved));
     const { user } = await renderApp();
     // Three saved names would read "3 professions"; only Mining is still in the book.
@@ -781,7 +797,7 @@ describe('App', () => {
     ]);
     first.unmount();
 
-    await renderApp();
+    await renderRaw();
     expect(screen.getByRole('radio', { name: 'Margin' })).toBeChecked();
     expect(cards()[0]).toBe('Add Smelt Bronze to the market list');
   });

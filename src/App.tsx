@@ -50,12 +50,14 @@ export function App() {
   const summary = useMemo(() => summarizeShopping(sheet.entries, prices), [sheet.entries, prices]);
   const { preferences, actions: preferenceActions } = usePreferences();
   const panelId = useId();
+  // The page always opens on the market analysis; the tab itself is never remembered.
+  const [tab, setTab] = useState<BookTab>('analysis');
   // Only a bookmark the player picks turns the page; the first render doesn't.
   const [turned, setTurned] = useState(false);
-  const selectTab = (tab: BookTab) => {
-    if (tab === preferences.tab) return;
+  const selectTab = (next: BookTab) => {
+    if (next === tab) return;
     setTurned(true);
-    preferenceActions.setTab(tab);
+    setTab(next);
   };
   const professions = useMemo(() => (catalog === null ? [] : professionsOf(catalog)), [catalog]);
   // A saved profession the recipe book no longer has is ignored; until the book loads, the saved list stands.
@@ -72,7 +74,7 @@ export function App() {
     actions.addCraftedRecipe(recipe, catalog.items);
     playCoin();
   };
-  const leftTitle = BOOKMARKS.find((bookmark) => bookmark.tab === preferences.tab)?.label ?? '';
+  const leftTitle = BOOKMARKS.find((bookmark) => bookmark.tab === tab)?.label ?? '';
 
   return (
     <ItemTooltipProvider>
@@ -83,19 +85,19 @@ export function App() {
           <MuteToggle muted={sheet.muted} onToggle={() => actions.setMuted(!sheet.muted)} />
         </header>
         <main className={styles.book}>
-          <Bookmarks selected={preferences.tab} panelId={panelId} onSelect={selectTab} />
+          <Bookmarks selected={tab} panelId={panelId} onSelect={selectTab} />
           <div className={styles.stitching} aria-hidden="true" />
           <Page
-            key={preferences.tab}
+            key={tab}
             id={panelId}
             role="tabpanel"
             side="left"
-            labelledBy={bookmarkId(preferences.tab)}
+            labelledBy={bookmarkId(tab)}
             heading={leftTitle}
             turning={turned}
           >
             <ProfessionPicker professions={professions} selected={selectedProfessions} onChange={preferenceActions.setProfessions} />
-            {preferences.tab === 'list' ? (
+            {tab === 'list' ? (
               <>
                 <RecipeBookNotice failed={catalogFailed} />
                 <ConnectionNotice lost={connectionLost} />

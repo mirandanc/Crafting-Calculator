@@ -61,8 +61,8 @@ the recipes most worth crafting right now.
   "N sold in a day" after the profession (rounded down, as 1.2k or 2.7m from a thousand up), and a note above the
   cards says how many days of sales the ranking uses.
   Until the job has compared two runs, the ranking uses margin only and says so.
-- The minimum profit per craft starts at 50c. The open tab, the minimum profit, the sort and the chosen professions
-  are saved in the browser. The professions also narrow the recipe search on the Market list.
+- The page always opens on Market analysis. The minimum profit per craft (starting at 50c), the sort and the chosen
+  professions are saved in the browser. The professions also narrow the recipe search on the Market list.
 - Click or tap any item icon for its in-game tooltip (item level, stats, effects, sell price) from ForeverDB; each item is fetched once per visit.
 
 ## Deployment
