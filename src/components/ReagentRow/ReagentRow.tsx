@@ -1,6 +1,6 @@
-import { PriceHint } from '@/components/PriceHint/PriceHint';
 import { ItemIcon } from '@/components/ItemIcon/ItemIcon';
 import { MoneyInput } from '@/components/MoneyInput/MoneyInput';
+import { PriceHint } from '@/components/PriceHint/PriceHint';
 import styles from '@/components/ReagentRow/ReagentRow.module.css';
 import { RemoveButton } from '@/components/RemoveButton/RemoveButton';
 import type { Coins } from '@/money/money';

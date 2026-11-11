@@ -35,7 +35,7 @@ export function App() {
   const playCoin = useCoinSound(sheet.muted);
   // Either price source arriving completes entries silently; see useChimeOnFullyPriced.
   // A recipe book without vendor prices brings no market prices, so it leaves the stamp alone.
-  const vendorStamp = Object.keys(vendorPrices).length === 0 ? null : (catalog?.build ?? null);
+  const vendorStamp = catalog === null || Object.keys(catalog.vendorPrices).length === 0 ? null : catalog.build;
   const marketStamp = auction.list === null && vendorStamp === null ? null : `${auction.list?.updatedAt ?? ''}|${vendorStamp ?? ''}`;
   useChimeOnFullyPriced({ entries: sheet.entries, prices, typedPrices: sheet.prices, marketStamp }, playCoin);
   const [connectionLost, setConnectionLost] = useState(false);

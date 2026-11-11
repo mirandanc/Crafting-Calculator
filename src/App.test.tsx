@@ -8,6 +8,7 @@ import type { AuctionPriceList } from '@/prices/auctionPrices';
 import { loadRecipeCatalog } from '@/recipes/loadRecipeCatalog';
 import { saveSheet, STORAGE_KEY } from '@/sheet/storage';
 import { TEST_CATALOG } from '@/test/catalogFixture';
+import { coins, recipeBlock } from '@/test/sheetFixtures';
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -57,6 +58,22 @@ const renderApp = async (): Promise<RenderedApp> => {
     await vi.advanceTimersByTimeAsync(0);
   });
   return { user, unmount: view.unmount, list: () => screen.getByRole('region', { name: 'Shopping list' }) };
+};
+
+/** Renders the App from a fresh module graph, so the recipe book is fetched again instead of read from the cache. */
+const renderFreshApp = async (): Promise<User> => {
+  vi.resetModules();
+  const fresh = await import('@/App');
+  const freshCatalog = await import('@/recipes/loadRecipeCatalog');
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  render(<fresh.App />);
+  await act(async () => {
+    await freshCatalog.loadRecipeCatalog();
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  return user;
 };
 
 const recipeArticle = (position: number) => screen.getByRole('article', { name: `Recipe ${position}` });
@@ -529,24 +546,23 @@ describe('App', () => {
   it('fills a cheaper vendor price and tags it', async () => {
     answerRecipes.mockImplementation(async () => jsonResponse({ ...TEST_CATALOG, vendorPrices: { '3576': 200 } }));
     answerAuctionPrices.mockImplementation(async () => jsonResponse(AUCTION));
-    // A fresh module graph: the catalog the other tests loaded is cached per module instance.
-    vi.resetModules();
-    const fresh = await import('@/App');
-    const freshCatalog = await import('@/recipes/loadRecipeCatalog');
-    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
-    render(<fresh.App />);
-    await act(async () => {
-      await freshCatalog.loadRecipeCatalog();
-    });
-    await act(async () => {
-      await vi.advanceTimersByTimeAsync(0);
-    });
+    const user = await renderFreshApp();
     await pickRecipe(user, 1, 'smelt', /Smelt Bronze/);
     const tinBar = screen.getByRole('listitem', { name: 'Tin Bar' });
     expect(within(tinBar).getByText('Vendor')).toBeInTheDocument();
     expect(screen.getByLabelText('Tin Bar price silver')).toHaveValue(2);
     const list = screen.getByRole('region', { name: 'Shopping list' });
     expect(within(totalCost(list)).getByText('3s 13c')).toBeInTheDocument();
+  });
+
+  it('stays silent when vendor prices from the recipe book finish an entry', async () => {
+    answerRecipes.mockImplementation(async () => jsonResponse({ ...TEST_CATALOG, vendorPrices: { '3576': 200 } }));
+    // Copper Bar is typed; Tin Bar has no price until the recipe book brings its vendor price.
+    saveSheet({ entries: [recipeBlock('a', 'Smelt Bronze', 2)], prices: { 'name:copper bar': coins(10) }, muted: false });
+    await renderFreshApp();
+    expect(screen.getByLabelText('Tin Bar price silver')).toHaveValue(2);
+    await waitForChime();
+    expect(play).not.toHaveBeenCalled();
   });
 
   it('says when auction prices are unavailable and keeps typed pricing working', async () => {

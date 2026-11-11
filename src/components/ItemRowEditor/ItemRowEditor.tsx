@@ -1,9 +1,9 @@
 import { useState } from 'react';
-import { PriceHint } from '@/components/PriceHint/PriceHint';
 import { Autocomplete, type SearchOption } from '@/components/Autocomplete/Autocomplete';
 import { EntryNumeral } from '@/components/EntryNumeral/EntryNumeral';
 import styles from '@/components/ItemRowEditor/ItemRowEditor.module.css';
 import { MoneyInput } from '@/components/MoneyInput/MoneyInput';
+import { PriceHint } from '@/components/PriceHint/PriceHint';
 import { RemoveButton } from '@/components/RemoveButton/RemoveButton';
 import { useItemSearch } from '@/foreverdb/useItemSearch';
 import type { Coins } from '@/money/money';
