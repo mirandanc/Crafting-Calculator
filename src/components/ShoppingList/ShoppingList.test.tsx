@@ -55,8 +55,8 @@ describe('ShoppingList', () => {
   it('shows the plural unpriced count and hides the large total when every line is unpriced', () => {
     const summary: ShoppingSummary = {
       lines: [
-        { key: 'name:copper bar', name: 'Copper Bar', icon: null, quantity: 5, unitPrice: 0, sources: [] },
-        { key: 'name:tin bar', name: 'Tin Bar', icon: null, quantity: 3, unitPrice: 0, sources: [] },
+        { key: 'name:copper bar', name: 'Copper Bar', icon: null, itemId: null, quantity: 5, unitPrice: 0, sources: [] },
+        { key: 'name:tin bar', name: 'Tin Bar', icon: null, itemId: null, quantity: 3, unitPrice: 0, sources: [] },
       ],
       total: 0,
       unpricedCount: 2,

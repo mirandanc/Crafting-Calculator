@@ -43,7 +43,13 @@ export function ItemRowEditor({
   // A linked row doesn't search (its name came from ForeverDB); typing unlinks it and searching resumes.
   const [edited, setEdited] = useState(false);
   const results = useItemSearch(edited && row.itemId === null ? row.name : '', onReachable);
-  const options: SearchOption[] = results.map((item) => ({ key: String(item.id), label: item.name, detail: null, icon: item.icon }));
+  const options: SearchOption[] = results.map((item) => ({
+    key: String(item.id),
+    label: item.name,
+    detail: null,
+    icon: item.icon,
+    item: { itemId: item.id, name: item.name },
+  }));
   const quantityInvalid = row.quantity === 0;
   // Prices are keyed by name, so a nameless row has no price of its own to set.
   const unnamed = row.name.trim() === '';
@@ -55,7 +61,7 @@ export function ItemRowEditor({
 
   return (
     <article className={styles.row} aria-label={`Item ${position}`}>
-      <EntryNumeral position={position} icon={row.icon} />
+      <EntryNumeral position={position} icon={row.icon} item={row.itemId === null ? null : { itemId: row.itemId, name: row.name }} />
       <Autocomplete
         label="Item name"
         value={row.name}

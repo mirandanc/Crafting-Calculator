@@ -36,7 +36,7 @@ export function ReagentRow({
       {reagent.icon === null ? (
         <span className={styles.iconGap} aria-hidden="true" />
       ) : (
-        <ItemIcon src={reagent.icon} size="row" />
+        <ItemIcon src={reagent.icon} size="row" item={{ itemId: reagent.itemId, name: reagent.name }} />
       )}
       <span className={styles.name}>{reagent.name}</span>
       <RemoveButton label={`Remove ${reagent.name} from ${recipeName}`} size="small" onClick={onRemove} />

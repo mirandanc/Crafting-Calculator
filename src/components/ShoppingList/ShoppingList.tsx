@@ -21,7 +21,11 @@ export function ShoppingList({ summary }: ShoppingListProps) {
               {line.icon === null ? (
                 <span className={styles.iconGap} aria-hidden="true" />
               ) : (
-                <ItemIcon src={line.icon} size="small" />
+                <ItemIcon
+                  src={line.icon}
+                  size="small"
+                  item={line.itemId === null ? undefined : { itemId: line.itemId, name: line.name }}
+                />
               )}
               <span className={styles.what}>
                 <span className={styles.name} title={line.name}>

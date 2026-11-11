@@ -5,6 +5,8 @@ export type ShoppingLine = {
   key: string;
   name: string;
   icon: string | null;
+  /** The item's ForeverDB id for its tooltip; null until a linked need sets it. */
+  itemId: number | null;
   quantity: number;
   /** Copper per item; 0 means unpriced. */
   unitPrice: number;
@@ -23,6 +25,7 @@ type Need = {
   key: string;
   name: string;
   icon: string | null;
+  itemId: number | null;
   quantity: number;
   source: string | null;
   /** True for a catalog recipe's reagent, or an item row picked from search (has an itemId). */
@@ -36,7 +39,17 @@ function entryNeeds(entry: Entry): Need[] {
   if (entry.kind === 'item') {
     const name = entry.name.trim();
     if (name === '' || entry.quantity === null || entry.quantity < 1) return [];
-    return [{ key: priceKey(name), name, icon: entry.icon, quantity: entry.quantity, source: null, linked: entry.itemId !== null }];
+    return [
+      {
+        key: priceKey(name),
+        name,
+        icon: entry.icon,
+        itemId: entry.itemId,
+        quantity: entry.quantity,
+        source: null,
+        linked: entry.itemId !== null,
+      },
+    ];
   }
   if (entry.recipe === null) return [];
   const plan = planCrafts(entry.wanted, entry.recipe.makes);
@@ -46,6 +59,7 @@ function entryNeeds(entry: Entry): Need[] {
     key: priceKey(reagent.name),
     name: reagent.name,
     icon: reagent.icon,
+    itemId: reagent.itemId,
     quantity: reagentQuantity(reagent.perCraft, plan),
     source,
     linked: true,
@@ -66,6 +80,7 @@ export function summarizeShopping(entries: Entry[], prices: Prices): ShoppingSum
         key: need.key,
         name: need.name,
         icon: need.icon,
+        itemId: need.itemId,
         quantity: need.quantity,
         unitPrice: unitPriceOf(prices, need.key),
         sources: need.source === null ? [] : [need.source],
@@ -74,10 +89,11 @@ export function summarizeShopping(entries: Entry[], prices: Prices): ShoppingSum
       continue;
     }
     line.quantity += need.quantity;
-    // A linked member sets the line's canonical name and icon once, the first time one arrives.
+    // A linked member sets the line's canonical name, icon and item id once, the first time one arrives.
     if (!line.linked && need.linked) {
       line.icon = need.icon;
       line.name = need.name;
+      line.itemId = need.itemId;
       line.linked = true;
     }
     if (need.source !== null && !line.sources.includes(need.source)) line.sources.push(need.source);
@@ -86,6 +102,7 @@ export function summarizeShopping(entries: Entry[], prices: Prices): ShoppingSum
     key: accumulator.key,
     name: accumulator.name,
     icon: accumulator.icon,
+    itemId: accumulator.itemId,
     quantity: accumulator.quantity,
     unitPrice: accumulator.unitPrice,
     sources: accumulator.sources,

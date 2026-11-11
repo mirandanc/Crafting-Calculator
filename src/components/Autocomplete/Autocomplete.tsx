@@ -1,6 +1,7 @@
 import { useEffect, useId, useRef, useState, type KeyboardEvent } from 'react';
 import styles from '@/components/Autocomplete/Autocomplete.module.css';
 import { ItemIcon } from '@/components/ItemIcon/ItemIcon';
+import type { TooltipItem } from '@/components/ItemTooltip/ItemTooltipProvider';
 
 export type SearchOption = {
   key: string;
@@ -8,6 +9,8 @@ export type SearchOption = {
   /** Small-caps hint on the right, e.g. the recipe's profession; null for none. */
   detail: string | null;
   icon: string | null;
+  /** The item the icon opens a tooltip for; null for none. */
+  item: TooltipItem | null;
 };
 
 type AutocompleteProps = {
@@ -135,7 +138,7 @@ export function Autocomplete({
             onMouseEnter={() => setActiveIndex(index)}
             onClick={() => choose(option)}
           >
-            {option.icon !== null && <ItemIcon src={option.icon} size="small" />}
+            {option.icon !== null && <ItemIcon src={option.icon} size="small" item={option.item ?? undefined} />}
             <span className={styles.label}>{option.label}</span>
             {option.detail !== null && <span className={styles.detail}>{option.detail}</span>}
           </li>
