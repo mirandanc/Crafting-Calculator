@@ -5,37 +5,37 @@ import { announceReady, pruneAnnounced } from '@/sound/chime';
 
 export type ChimeInputs = {
   entries: Entry[];
-  /** Prices in effect: typed ones over auction ones. */
+  /** Prices in effect: typed ones over market ones. */
   prices: Prices;
   /** Prices the player typed. */
   typedPrices: Prices;
-  /** Changes when a new auction price list arrives (its updatedAt), null before. */
-  auctionStamp: string | null;
+  /** Changes when new market prices arrive (auction list or recipe book), null before. */
+  marketStamp: string | null;
 };
 
 const CHIME_DELAY_MS = 800;
 
 /**
  * Calls `onChime` once, 800 ms after the last change, when an entry has newly become fully priced by
- * the player's own typing. Entries priced by the auction alone, or completed by auction data arriving,
- * are marked as announced silently. A typed completion inside the same window as auction data arriving
+ * the player's own typing. Entries priced by the market alone, or completed by market data arriving,
+ * are marked as announced silently. A typed completion inside the same window as market data arriving
  * is also silent.
  */
-export function useChimeOnFullyPriced({ entries, prices, typedPrices, auctionStamp }: ChimeInputs, onChime: () => void): void {
+export function useChimeOnFullyPriced({ entries, prices, typedPrices, marketStamp }: ChimeInputs, onChime: () => void): void {
   const [initiallyReady] = useState(() => fullyPricedEntryIds(entries, prices));
   const announcedRef = useRef<string[]>(initiallyReady);
   const onChimeRef = useRef(onChime);
-  const lastStampRef = useRef(auctionStamp);
-  const auctionChangedRef = useRef(false);
+  const lastStampRef = useRef(marketStamp);
+  const marketChangedRef = useRef(false);
 
   useEffect(() => {
     onChimeRef.current = onChime;
   }, [onChime]);
 
   useEffect(() => {
-    if (auctionStamp !== lastStampRef.current) {
-      lastStampRef.current = auctionStamp;
-      auctionChangedRef.current = true;
+    if (marketStamp !== lastStampRef.current) {
+      lastStampRef.current = marketStamp;
+      marketChangedRef.current = true;
     }
     const ready = fullyPricedEntryIds(entries, prices);
 
@@ -46,9 +46,9 @@ export function useChimeOnFullyPriced({ entries, prices, typedPrices, auctionSta
       const pruned = pruneAnnounced(announcedRef.current, ready);
       const { announced, added } = announceReady(pruned, ready);
       announcedRef.current = announced;
-      const auctionChanged = auctionChangedRef.current;
-      auctionChangedRef.current = false;
-      if (auctionChanged) return;
+      const marketChanged = marketChangedRef.current;
+      marketChangedRef.current = false;
+      if (marketChanged) return;
       const typedAdded = added.some((id) => {
         const entry = entries.find((candidate) => candidate.id === id);
         return entry !== undefined && usesTypedPrice(entry, typedPrices);
@@ -57,5 +57,5 @@ export function useChimeOnFullyPriced({ entries, prices, typedPrices, auctionSta
     }, CHIME_DELAY_MS);
 
     return () => clearTimeout(timer);
-  }, [entries, prices, typedPrices, auctionStamp]);
+  }, [entries, prices, typedPrices, marketStamp]);
 }

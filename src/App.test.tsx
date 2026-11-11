@@ -526,6 +526,29 @@ describe('App', () => {
     expect(within(screen.getByRole('listitem', { name: 'Tin Bar' })).queryByText('Not on AH')).toBeNull();
   });
 
+  it('fills a cheaper vendor price and tags it', async () => {
+    answerRecipes.mockImplementation(async () => jsonResponse({ ...TEST_CATALOG, vendorPrices: { '3576': 200 } }));
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(AUCTION));
+    // A fresh module graph: the catalog the other tests loaded is cached per module instance.
+    vi.resetModules();
+    const fresh = await import('@/App');
+    const freshCatalog = await import('@/recipes/loadRecipeCatalog');
+    const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+    render(<fresh.App />);
+    await act(async () => {
+      await freshCatalog.loadRecipeCatalog();
+    });
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
+    });
+    await pickRecipe(user, 1, 'smelt', /Smelt Bronze/);
+    const tinBar = screen.getByRole('listitem', { name: 'Tin Bar' });
+    expect(within(tinBar).getByText('Vendor')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tin Bar price silver')).toHaveValue(2);
+    const list = screen.getByRole('region', { name: 'Shopping list' });
+    expect(within(totalCost(list)).getByText('3s 13c')).toBeInTheDocument();
+  });
+
   it('says when auction prices are unavailable and keeps typed pricing working', async () => {
     const { user } = await renderApp();
     expect(screen.getByText('Auction prices unavailable')).toBeInTheDocument();

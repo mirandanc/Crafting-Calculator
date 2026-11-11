@@ -5,7 +5,7 @@ import { ReagentRow } from '@/components/ReagentRow/ReagentRow';
 import styles from '@/components/RecipeBlockEditor/RecipeBlockEditor.module.css';
 import { RemoveButton } from '@/components/RemoveButton/RemoveButton';
 import type { Coins } from '@/money/money';
-import { auctionHintOf, type AuctionPricesByKey } from '@/prices/auctionPrices';
+import { priceHintOf, type MarketPricesByKey } from '@/prices/marketPrices';
 import { searchRecipes, type CatalogItem, type CatalogRecipe, type RecipeCatalog } from '@/recipes/catalog';
 import { craftNote, planCrafts, reagentQuantity } from '@/sheet/crafts';
 import { MAX_WANTED, parseWanted, priceKey, priceOf, type Prices, type RecipeBlock } from '@/sheet/sheet';
@@ -14,11 +14,11 @@ type RecipeBlockEditorProps = {
   block: RecipeBlock;
   position: number;
   catalog: RecipeCatalog | null;
-  /** The prices in effect: typed over auction. */
+  /** The prices in effect: typed over market. */
   prices: Prices;
   /** Only the prices the player typed. */
   typedPrices: Prices;
-  auctionByKey: AuctionPricesByKey;
+  marketByKey: MarketPricesByKey;
   auctionLoaded: boolean;
   onChoose: (recipe: CatalogRecipe, items: Record<string, CatalogItem>) => void;
   onWantedChange: (wanted: number | null) => void;
@@ -35,7 +35,7 @@ export function RecipeBlockEditor({
   catalog,
   prices,
   typedPrices,
-  auctionByKey,
+  marketByKey,
   auctionLoaded,
   onChoose,
   onWantedChange,
@@ -117,7 +117,7 @@ export function RecipeBlockEditor({
                     recipeName={recipe.name}
                     quantity={reagentQuantity(reagent.perCraft, plan)}
                     price={priceOf(prices, key)}
-                    hint={auctionHintOf(key, true, typedPrices, auctionByKey, auctionLoaded)}
+                    hint={priceHintOf(key, true, typedPrices, marketByKey, auctionLoaded)}
                     onPriceChange={(price) => onPriceChange(key, price)}
                     onPriceBlur={() => onPriceBlur(key)}
                     onRestorePrice={() => onRestorePrice(key)}

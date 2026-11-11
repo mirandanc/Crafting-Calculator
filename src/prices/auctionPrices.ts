@@ -1,5 +1,4 @@
-import { fromCopper, GOLD_CAP_COPPER } from '@/money/money';
-import { priceKey, type Entry, type Prices } from '@/sheet/sheet';
+import { GOLD_CAP_COPPER } from '@/money/money';
 
 export type AuctionHouse = {
   ruleset: number;
@@ -18,11 +17,6 @@ export type AuctionPriceList = {
   quantities?: Record<string, number>;
 };
 
-/** Auction copper per price key (`name:<lower-case name>`), for the names on the page that are linked to an item. */
-export type AuctionPricesByKey = Record<string, number>;
-
-export type AuctionHint = { kind: 'none' } | { kind: 'notListed' } | { kind: 'restore'; copper: number };
-
 export type AuctionPricesState = {
   /** null while loading, and after a failed load. */
   list: AuctionPriceList | null;
@@ -36,11 +30,6 @@ export type AuctionStatus = {
 };
 
 type UnknownRecord = Record<string, unknown>;
-
-type LinkedPriceKey = {
-  key: string;
-  itemId: number;
-};
 
 const MARKET_LABEL = 'US Alliance';
 const STALE_AFTER_HOURS = 48;
@@ -76,41 +65,6 @@ export function parseAuctionPriceList(value: unknown): AuctionPriceList | null {
   const list: AuctionPriceList = { updatedAt: value.updatedAt, house: { ruleset, id, name }, prices };
   if (isRecord(value.quantities)) list.quantities = parseQuantities(value.quantities);
   return list;
-}
-
-function linkedItems(entries: Entry[]): LinkedPriceKey[] {
-  return entries.flatMap((entry): LinkedPriceKey[] => {
-    if (entry.kind === 'item') {
-      return entry.itemId === null || entry.name.trim() === '' ? [] : [{ key: priceKey(entry.name), itemId: entry.itemId }];
-    }
-    return (entry.recipe?.reagents ?? []).map((reagent) => ({ key: priceKey(reagent.name), itemId: reagent.itemId }));
-  });
-}
-
-/** The first linked item of a name sets its price; typed-only rows of the same name share it through the key. */
-export function auctionPricesByKey(entries: Entry[], prices: Record<string, number>): AuctionPricesByKey {
-  const byKey: AuctionPricesByKey = {};
-  for (const { key, itemId } of linkedItems(entries)) {
-    const copper: number | undefined = prices[String(itemId)];
-    if (!(key in byKey) && copper !== undefined) byKey[key] = copper;
-  }
-  return byKey;
-}
-
-/** Typed prices win; every other priced key comes from the auction. */
-export function withAuctionPrices(typed: Prices, byKey: AuctionPricesByKey): Prices {
-  const added = Object.entries(byKey).filter(([key]) => !(key in typed));
-  if (added.length === 0) return typed;
-  const merged: Prices = { ...typed };
-  for (const [key, copper] of added) merged[key] = fromCopper(copper);
-  return merged;
-}
-
-export function auctionHintOf(key: string, linked: boolean, typed: Prices, byKey: AuctionPricesByKey, loaded: boolean): AuctionHint {
-  if (!loaded) return { kind: 'none' };
-  const copper: number | undefined = byKey[key];
-  if (key in typed) return copper === undefined ? { kind: 'none' } : { kind: 'restore', copper };
-  return linked && copper === undefined ? { kind: 'notListed' } : { kind: 'none' };
 }
 
 function ageText(ageMs: number): string {
