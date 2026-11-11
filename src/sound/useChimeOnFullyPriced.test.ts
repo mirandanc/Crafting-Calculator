@@ -170,6 +170,17 @@ describe('useChimeOnFullyPriced', () => {
     expect(onChime).not.toHaveBeenCalled();
   });
 
+  it('stays quiet for a change that already chimed, then chimes as usual', () => {
+    const { result, rerender, onChime } = setup([], PRICED);
+    act(() => result.current());
+    rerender({ entries: linen(), prices: PRICED, typed: PRICED, marketStamp: null });
+    wait(800);
+    expect(onChime).not.toHaveBeenCalled();
+    rerender({ entries: [...linen(), itemRow('b', 'Wool Cloth', 1)], prices: PRICED, typed: PRICED, marketStamp: null });
+    wait(800);
+    expect(onChime).toHaveBeenCalledTimes(1);
+  });
+
   it('cancels a pending chime on unmount', () => {
     const { rerender, unmount, onChime } = setup(linen(), {});
     rerender({ entries: linen(), prices: PRICED, typed: PRICED, marketStamp: null });

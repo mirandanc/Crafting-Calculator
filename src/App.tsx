@@ -43,7 +43,7 @@ export function App() {
   // A recipe book without vendor prices brings no market prices, so it leaves the stamp alone.
   const vendorStamp = catalog === null || Object.keys(catalog.vendorPrices).length === 0 ? null : catalog.build;
   const marketStamp = auction.list === null && vendorStamp === null ? null : `${auction.list?.updatedAt ?? ''}|${vendorStamp ?? ''}`;
-  useChimeOnFullyPriced({ entries: sheet.entries, prices, typedPrices: sheet.prices, marketStamp }, playCoin);
+  const quietNextChimeCheck = useChimeOnFullyPriced({ entries: sheet.entries, prices, typedPrices: sheet.prices, marketStamp }, playCoin);
   const [connectionLost, setConnectionLost] = useState(false);
   const handleReachable = useCallback((reachable: boolean) => setConnectionLost(!reachable), []);
   const summary = useMemo(() => summarizeShopping(sheet.entries, prices), [sheet.entries, prices]);
@@ -63,10 +63,11 @@ export function App() {
       catalog === null ? preferences.professions : preferences.professions.filter((profession) => professions.includes(profession)),
     [catalog, professions, preferences.professions],
   );
-  // A recipe sent from the analysis chimes straight away; it is priced by the market, so the
-  // fully-priced chime stays silent for it.
+  // A recipe sent from the analysis chimes straight away. Its reagents may use a price the player
+  // typed earlier, so the fully-priced check that follows is told to stay quiet rather than chime again.
   const addFromAnalysis = (recipe: CatalogRecipe) => {
     if (catalog === null) return;
+    quietNextChimeCheck();
     actions.addCraftedRecipe(recipe, catalog.items);
     playCoin();
   };

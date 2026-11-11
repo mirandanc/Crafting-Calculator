@@ -603,6 +603,22 @@ describe('App', () => {
     expect(within(recipeArticle(1)).getByLabelText('Amount wanted')).toHaveValue(2);
   });
 
+  it('chimes once for a ranked recipe whose reagent has a typed price', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse({ ...AUCTION, prices: { ...AUCTION.prices, '2841': 900 } }));
+    const { user } = await renderApp();
+    await pickRecipe(user, 1, 'smelt', /Smelt Bronze/);
+    await user.type(screen.getByLabelText('Copper Bar price copper'), '90');
+    // The auction already priced the block, so the typed price changes it quietly.
+    await waitForChime();
+    expect(play).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('tab', { name: 'Market analysis' }));
+    await user.click(screen.getByRole('button', { name: 'Add Smelt Bronze to the market list' }));
+    expect(play).toHaveBeenCalledTimes(1);
+    // The new block uses the typed Copper Bar price, yet the click's chime is its only one.
+    await waitForChime();
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
   it('narrows the recipe search to the professions picked', async () => {
     const { user } = await renderApp();
     await user.click(screen.getByText('All professions'));

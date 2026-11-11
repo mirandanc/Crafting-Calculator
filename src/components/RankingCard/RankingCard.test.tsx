@@ -22,6 +22,9 @@ describe('RankingCard', () => {
     render(<RankingCard ranked={SMELT} onAdd={vi.fn()} />);
     const card = screen.getByRole('button', { name: /Add Smelt Bronze to the market list/ });
     expect(within(card).getByText('446%')).toBeInTheDocument();
+    expect(card).toHaveAccessibleDescription(
+      'Mining, 446% margin. Profit 13s 97c Sells for 17s 10c Costs 3s 13c Copper Bar ×1 1s 13c Tin Bar ×1 2s Vendor',
+    );
     expect(within(card).getByText('Mining')).toBeInTheDocument();
     expect(within(card).getByText('13s 97c')).toBeInTheDocument(); // profit (sr-only text)
     expect(within(card).getByText('17s 10c')).toBeInTheDocument(); // sells for

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useCallback, useEffect, useRef, useState } from 'react';
 import { fullyPricedEntryIds, usesTypedPrice } from '@/sheet/fullyPriced';
 import type { Entry, Prices } from '@/sheet/sheet';
 import { announceReady, pruneAnnounced } from '@/sound/chime';
@@ -20,13 +20,18 @@ const CHIME_DELAY_MS = 800;
  * the player's own typing. Entries priced by the market alone, or completed by market data arriving,
  * are marked as announced silently. A typed completion inside the same window as market data arriving
  * is also silent.
+ *
+ * Returns a function that makes the next check announce quietly, for a change that already chimed
+ * on its own (a recipe sent from the market analysis). Any entry it completes counts as announced,
+ * whether it landed in a new block or in the page's lone empty one.
  */
-export function useChimeOnFullyPriced({ entries, prices, typedPrices, marketStamp }: ChimeInputs, onChime: () => void): void {
+export function useChimeOnFullyPriced({ entries, prices, typedPrices, marketStamp }: ChimeInputs, onChime: () => void): () => void {
   const [initiallyReady] = useState(() => fullyPricedEntryIds(entries, prices));
   const announcedRef = useRef<string[]>(initiallyReady);
   const onChimeRef = useRef(onChime);
   const lastStampRef = useRef(marketStamp);
   const marketChangedRef = useRef(false);
+  const quietRef = useRef(false);
 
   useEffect(() => {
     onChimeRef.current = onChime;
@@ -46,9 +51,10 @@ export function useChimeOnFullyPriced({ entries, prices, typedPrices, marketStam
       const pruned = pruneAnnounced(announcedRef.current, ready);
       const { announced, added } = announceReady(pruned, ready);
       announcedRef.current = announced;
-      const marketChanged = marketChangedRef.current;
+      const quiet = marketChangedRef.current || quietRef.current;
       marketChangedRef.current = false;
-      if (marketChanged) return;
+      quietRef.current = false;
+      if (quiet) return;
       const typedAdded = added.some((id) => {
         const entry = entries.find((candidate) => candidate.id === id);
         return entry !== undefined && usesTypedPrice(entry, typedPrices);
@@ -58,4 +64,8 @@ export function useChimeOnFullyPriced({ entries, prices, typedPrices, marketStam
 
     return () => clearTimeout(timer);
   }, [entries, prices, typedPrices, marketStamp]);
+
+  return useCallback(() => {
+    quietRef.current = true;
+  }, []);
 }

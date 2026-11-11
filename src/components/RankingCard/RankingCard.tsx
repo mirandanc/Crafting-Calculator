@@ -1,4 +1,4 @@
-import { useId } from 'react';
+import { Fragment, useId } from 'react';
 import { ItemIcon } from '@/components/ItemIcon/ItemIcon';
 import { MoneyText } from '@/components/MoneyText/MoneyText';
 import styles from '@/components/RankingCard/RankingCard.module.css';
@@ -36,30 +36,38 @@ export function RankingCard({ ranked, onAdd }: RankingCardProps) {
           <span className={styles.margin}>{formatMargin(margin)}</span>
         </span>
         <span id={detailsId} className={styles.details}>
-          <span className="sr-only">{`${formatMargin(margin)} margin.`}</span>
+          <span className="sr-only">{`${recipe.profession}, ${formatMargin(margin)} margin.`}</span>{' '}
           <span className={styles.money}>
             <span className={styles.figure}>
-              <span className={styles.label}>Profit</span>
+              <span className={styles.label}>Profit</span>{' '}
               <MoneyText copper={profit} />
-            </span>
+            </span>{' '}
             <span className={styles.figure}>
-              <span className={styles.label}>Sells for</span>
+              <span className={styles.label}>Sells for</span>{' '}
               <MoneyText copper={revenue} />
-            </span>
+            </span>{' '}
             <span className={styles.figure}>
-              <span className={styles.label}>Costs</span>
+              <span className={styles.label}>Costs</span>{' '}
               <MoneyText copper={cost} />
             </span>
-          </span>
+          </span>{' '}
+          {/* The spaces between parts only matter to the description; flex and grid layouts drop them. */}
           <span role="list" className={styles.reagents}>
             {reagents.map((reagent) => (
-              <span key={reagent.itemId} role="listitem" className={styles.reagent} aria-label={reagent.name}>
-                {reagent.icon === null ? <span className={styles.iconGap} aria-hidden="true" /> : <ItemIcon src={reagent.icon} size="small" />}
-                <span className={styles.reagentName}>{reagent.name}</span>
-                <span className={styles.count}>×{reagent.count}</span>
-                <MoneyText copper={reagent.unitPrice} />
-                {reagent.source === 'vendor' && <span className={styles.tag}>Vendor</span>}
-              </span>
+              <Fragment key={reagent.itemId}>
+                <span role="listitem" className={styles.reagent} aria-label={reagent.name}>
+                  {reagent.icon === null ? <span className={styles.iconGap} aria-hidden="true" /> : <ItemIcon src={reagent.icon} size="small" />}
+                  <span className={styles.reagentName}>{reagent.name}</span>{' '}
+                  <span className={styles.count}>×{reagent.count}</span>{' '}
+                  <MoneyText copper={reagent.unitPrice} />
+                  {reagent.source === 'vendor' && (
+                    <>
+                      {' '}
+                      <span className={styles.tag}>Vendor</span>
+                    </>
+                  )}
+                </span>{' '}
+              </Fragment>
             ))}
           </span>
         </span>
