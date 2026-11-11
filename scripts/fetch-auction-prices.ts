@@ -13,11 +13,17 @@ import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import type { AuctionHouse, AuctionPriceList } from '@/prices/auctionPrices';
 
+/** Blizzard's `time_left`: how long a listing has before it expires. */
+export type TimeLeftBand = 'SHORT' | 'MEDIUM' | 'LONG' | 'VERY_LONG';
+
 export type Listing = {
+  /** Blizzard's auction id; the same listing keeps it from one snapshot to the next. */
+  id: number;
   itemId: number;
   /** Copper per unit. */
   unitPrice: number;
   quantity: number;
+  band: TimeLeftBand;
 };
 
 export type BlizzardClientDeps = {
@@ -31,8 +37,10 @@ export type BlizzardClient = {
 type UnknownRecord = Record<string, unknown>;
 
 type ListingBase = {
+  id: number;
   itemId: number;
   quantity: number;
+  band: TimeLeftBand;
 };
 
 type HouseIndexEntry = {
@@ -46,6 +54,15 @@ type HouseIndex = {
 
 /** Share of an item's quantity for sale that its price is averaged over, cheapest listings first. */
 const MARKET_SHARE = 0.15;
+const MINUTE_MS = 60_000;
+const HOUR_MS = 60 * MINUTE_MS;
+/** In the order the history file stores them (a band is saved as its index). */
+const BANDS: TimeLeftBand[] = ['SHORT', 'MEDIUM', 'LONG', 'VERY_LONG'];
+/**
+ * The least time a listing in each band still has. Blizzard documents VERY_LONG as over 12 h; 8 h is the
+ * safer floor. A listing that vanishes sooner than its band allows was bought (or cancelled), not expired.
+ */
+const BAND_MINIMUM_MS: Record<TimeLeftBand, number> = { SHORT: 0, MEDIUM: 30 * MINUTE_MS, LONG: 2 * HOUR_MS, VERY_LONG: 8 * HOUR_MS };
 /**
  * Mirrors GOLD_CAP_COPPER in src/money/money.ts (9 999 999g 99s 99c), the most the page accepts.
  * Kept as a copy because this script may import only types from src/.
@@ -78,34 +95,44 @@ function listingsOf(body: unknown, name: string, required: boolean): unknown[] {
   return body.auctions;
 }
 
+/** An unknown or missing band reads as SHORT, which never counts as a sale. */
+function bandOf(value: unknown): TimeLeftBand {
+  return BANDS.find((band) => band === value) ?? 'SHORT';
+}
+
+export function bandMinimumMs(band: TimeLeftBand): number {
+  return BAND_MINIMUM_MS[band];
+}
+
 function listingBase(raw: UnknownRecord): ListingBase {
   const item = raw.item;
-  if (!isRecord(item) || !isPositiveInteger(item.id) || !isPositiveInteger(raw.quantity)) {
+  if (!isPositiveInteger(raw.id) || !isRecord(item) || !isPositiveInteger(item.id) || !isPositiveInteger(raw.quantity)) {
     throw new Error(`Unexpected listing: ${JSON.stringify(raw).slice(0, 200)}`);
   }
-  return { itemId: item.id, quantity: raw.quantity };
+  return { id: raw.id, itemId: item.id, quantity: raw.quantity, band: bandOf(raw.time_left) };
 }
 
 /**
  * Flattens a house answer (regular auctions, `buyout` per auction) and its commodities answer
  * (`unit_price` per unit; the list is also named `auctions`) into per-unit listings. Bid-only
  * auctions are skipped. An empty house has no `auctions` field at all; an empty commodities answer
- * is not allowed to miss it.
+ * is not allowed to miss it. Each listing keeps its auction id and time-left band, which the sales
+ * estimate compares between runs.
  */
 export function unitListings(house: unknown, commodities: unknown): Listing[] {
   const listings: Listing[] = [];
   for (const raw of listingsOf(house, 'auctions', false)) {
     if (!isRecord(raw)) throw new Error('Unexpected listing in auctions');
-    const { itemId, quantity } = listingBase(raw);
+    const base = listingBase(raw);
     if (raw.buyout === undefined) continue;
-    if (!isPositiveInteger(raw.buyout)) throw new Error(`Unexpected listing buyout for item ${itemId}`);
-    listings.push({ itemId, unitPrice: raw.buyout / quantity, quantity });
+    if (!isPositiveInteger(raw.buyout)) throw new Error(`Unexpected listing buyout for item ${base.itemId}`);
+    listings.push({ ...base, unitPrice: raw.buyout / base.quantity });
   }
   for (const raw of listingsOf(commodities, 'commodities', true)) {
     if (!isRecord(raw)) throw new Error('Unexpected listing in commodities');
-    const { itemId, quantity } = listingBase(raw);
-    if (!isPositiveInteger(raw.unit_price)) throw new Error(`Unexpected listing unit_price for item ${itemId}`);
-    listings.push({ itemId, unitPrice: raw.unit_price, quantity });
+    const base = listingBase(raw);
+    if (!isPositiveInteger(raw.unit_price)) throw new Error(`Unexpected listing unit_price for item ${base.itemId}`);
+    listings.push({ ...base, unitPrice: raw.unit_price });
   }
   return listings;
 }

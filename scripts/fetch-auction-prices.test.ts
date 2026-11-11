@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import {
+  bandMinimumMs,
   buildPriceList,
   checkPriceList,
   createBlizzardClient,
@@ -9,11 +10,18 @@ import {
   unitListings,
   type BlizzardClientDeps,
   type Listing,
+  type TimeLeftBand,
 } from '@scripts/fetch-auction-prices';
 import { GOLD_CAP_COPPER } from '@/money/money';
 import type { AuctionHouse } from '@/prices/auctionPrices';
 
-const listing = (itemId: number, unitPrice: number, quantity: number): Listing => ({ itemId, unitPrice, quantity });
+const listing = (itemId: number, unitPrice: number, quantity: number, id = 1, band: TimeLeftBand = 'LONG'): Listing => ({
+  id,
+  itemId,
+  unitPrice,
+  quantity,
+  band,
+});
 
 describe('marketValue', () => {
   it('uses the only listing when there is one', () => {
@@ -68,10 +76,27 @@ describe('unitListings', () => {
     };
     const commodities = { auctions: [{ id: 4, item: { id: 2840 }, quantity: 20, unit_price: 113, time_left: 'MEDIUM' }] };
     expect(unitListings(house, commodities)).toEqual([
-      listing(6266, 300, 1),
-      listing(15310, 550, 2),
-      listing(2840, 113, 20),
+      listing(6266, 300, 1, 1, 'LONG'),
+      listing(15310, 550, 2, 2, 'LONG'),
+      listing(2840, 113, 20, 4, 'MEDIUM'),
     ]);
+  });
+
+  it('reads every time-left band, and treats an unknown one as SHORT so it never counts as a sale', () => {
+    const commodities = {
+      auctions: ['SHORT', 'MEDIUM', 'LONG', 'VERY_LONG', 'SOON', undefined].map((time_left, index) => ({
+        id: index + 1,
+        item: { id: 2840 },
+        quantity: 1,
+        unit_price: 10,
+        time_left,
+      })),
+    };
+    expect(unitListings({}, commodities).map((entry) => entry.band)).toEqual(['SHORT', 'MEDIUM', 'LONG', 'VERY_LONG', 'SHORT', 'SHORT']);
+  });
+
+  it('rejects a listing without an id', () => {
+    expect(() => unitListings({}, { auctions: [{ item: { id: 2840 }, quantity: 1, unit_price: 10 }] })).toThrow('listing');
   });
 
   it('treats a house with no auctions field (an empty house) as no listings', () => {
@@ -106,6 +131,16 @@ describe('unitListings', () => {
     expect(() =>
       unitListings({ auctions: [] }, { auctions: [{ id: 1, item: { id: 2840 }, quantity: 1, unit_price: '1' }] }),
     ).toThrow('unit_price');
+  });
+});
+
+describe('bandMinimumMs', () => {
+  it('gives the least time a listing in each band has left', () => {
+    expect(bandMinimumMs('SHORT')).toBe(0);
+    expect(bandMinimumMs('MEDIUM')).toBe(30 * 60_000);
+    expect(bandMinimumMs('LONG')).toBe(2 * 3_600_000);
+    // Blizzard documents 12 h; 8 h is the safer floor.
+    expect(bandMinimumMs('VERY_LONG')).toBe(8 * 3_600_000);
   });
 });
 
