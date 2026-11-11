@@ -129,6 +129,16 @@ export function withRecipe(block: RecipeBlock, recipe: CatalogRecipe, items: Rec
   };
 }
 
+/** Adds one craft of a recipe; a page holding only an empty recipe field gets it in that field. */
+export function withCraftedRecipe(entries: Entry[], recipe: CatalogRecipe, items: Record<string, CatalogItem>): Entry[] {
+  const only = entries.length === 1 ? entries[0] : null;
+  const reuse = only !== null && only.kind === 'recipe' && only.recipe === null ? only : null;
+  // ×N counts items wanted: one craft's worth, rounded down so a 1.5 yield still asks for one craft.
+  const wanted = Math.min(Math.max(1, Math.floor(recipe.makes?.count ?? 1)), MAX_WANTED);
+  const block: RecipeBlock = { ...withRecipe(reuse ?? createRecipeBlock(), recipe, items), wanted };
+  return reuse === null ? [...entries, block] : [block];
+}
+
 export function withoutReagent(block: RecipeBlock, itemId: number): RecipeBlock {
   if (block.recipe === null) return block;
   return {

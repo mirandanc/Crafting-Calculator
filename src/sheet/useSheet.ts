@@ -5,6 +5,7 @@ import {
   createDefaultSheet,
   createItemRow,
   createRecipeBlock,
+  withCraftedRecipe,
   withItemName,
   withLinkedItem,
   withoutEntry,
@@ -25,6 +26,8 @@ export type SheetActions = {
   removeEntry: (id: string) => void;
   eraseAll: () => void;
   chooseRecipe: (id: string, recipe: CatalogRecipe, items: Record<string, CatalogItem>) => void;
+  /** Adds one craft of a recipe from the market analysis. */
+  addCraftedRecipe: (recipe: CatalogRecipe, items: Record<string, CatalogItem>) => void;
   setWanted: (id: string, wanted: number | null) => void;
   removeReagent: (id: string, itemId: number) => void;
   renameItem: (id: string, name: string) => void;
@@ -80,6 +83,8 @@ export function useSheet(): SheetState {
       removeEntry: (id) => setSheet((current) => ({ ...current, entries: withoutEntry(current.entries, id) })),
       eraseAll: () => setSheet((current) => ({ ...createDefaultSheet(), muted: current.muted })),
       chooseRecipe: (id, recipe, items) => mapRecipe(id, (block) => withRecipe(block, recipe, items)),
+      addCraftedRecipe: (recipe, items) =>
+        setSheet((current) => ({ ...current, entries: withCraftedRecipe(current.entries, recipe, items) })),
       setWanted: (id, wanted) => mapRecipe(id, (block) => ({ ...block, wanted })),
       removeReagent: (id, itemId) => mapRecipe(id, (block) => withoutReagent(block, itemId)),
       renameItem: (id, name) => mapItem(id, (row) => withItemName(row, name)),

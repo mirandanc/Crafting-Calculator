@@ -13,6 +13,13 @@ describe('useSheet', () => {
     localStorage.clear();
   });
 
+  it('adds one craft of a recipe from the market analysis', () => {
+    const { result } = renderHook(() => useSheet());
+    act(() => result.current.actions.addCraftedRecipe(testRecipe('Smelt Bronze'), TEST_CATALOG.items));
+    expect(result.current.sheet.entries).toHaveLength(1);
+    expect(result.current.sheet.entries[0]).toMatchObject({ kind: 'recipe', wanted: 2, recipe: { name: 'Smelt Bronze' } });
+  });
+
   it('starts with one empty recipe block', () => {
     const { result } = renderHook(() => useSheet());
     expect(result.current.sheet.entries).toHaveLength(1);

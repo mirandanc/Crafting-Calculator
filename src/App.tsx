@@ -5,6 +5,7 @@ import { BOOKMARKS, bookmarkId, Bookmarks } from '@/components/Bookmarks/Bookmar
 import { ConnectionNotice } from '@/components/ConnectionNotice/ConnectionNotice';
 import { EntryList } from '@/components/EntryList/EntryList';
 import { Footer } from '@/components/Footer/Footer';
+import { MarketAnalysis } from '@/components/MarketAnalysis/MarketAnalysis';
 import { MuteToggle } from '@/components/MuteToggle/MuteToggle';
 import { Page } from '@/components/Page/Page';
 import { ProfessionPicker } from '@/components/ProfessionPicker/ProfessionPicker';
@@ -15,7 +16,7 @@ import type { BookTab } from '@/market/preferences';
 import { usePreferences } from '@/market/usePreferences';
 import { marketPricesByKey, withMarketPrices, type ItemPrices } from '@/prices/marketPrices';
 import { useAuctionPrices } from '@/prices/useAuctionPrices';
-import { professionsOf } from '@/recipes/catalog';
+import { professionsOf, type CatalogRecipe } from '@/recipes/catalog';
 import { useRecipeCatalog } from '@/recipes/useRecipeCatalog';
 import { summarizeShopping } from '@/sheet/shopping';
 import { useSheet } from '@/sheet/useSheet';
@@ -62,6 +63,13 @@ export function App() {
       catalog === null ? preferences.professions : preferences.professions.filter((profession) => professions.includes(profession)),
     [catalog, professions, preferences.professions],
   );
+  // A recipe sent from the analysis chimes straight away; it is priced by the market, so the
+  // fully-priced chime stays silent for it.
+  const addFromAnalysis = (recipe: CatalogRecipe) => {
+    if (catalog === null) return;
+    actions.addCraftedRecipe(recipe, catalog.items);
+    playCoin();
+  };
   const leftTitle = BOOKMARKS.find((bookmark) => bookmark.tab === preferences.tab)?.label ?? '';
 
   return (
@@ -101,8 +109,16 @@ export function App() {
               />
             </>
           ) : (
-            // Replaced by the market analysis in the next task.
-            <p>Market analysis</p>
+            <MarketAnalysis
+              catalog={catalog}
+              catalogFailed={catalogFailed}
+              auction={auction}
+              professions={selectedProfessions}
+              minProfit={preferences.minProfit}
+              onMinProfitChange={preferenceActions.setMinProfit}
+              onMinProfitBlur={preferenceActions.normalizeMinProfit}
+              onAdd={addFromAnalysis}
+            />
           )}
         </Page>
         <ShoppingList summary={summary} />

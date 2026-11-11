@@ -26,6 +26,7 @@ function Harness({ initialEntries, typedPrices = {}, marketByKey, onClearPrice =
     removeEntry: (id) => setEntries((current) => withoutEntry(current, id)),
     eraseAll: () => setEntries([createRecipeBlock()]),
     chooseRecipe: () => {},
+    addCraftedRecipe: () => {},
     setWanted: () => {},
     removeReagent: () => {},
     renameItem: () => {},

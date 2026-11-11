@@ -1,0 +1,41 @@
+import { render, screen, within } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { describe, expect, it, vi } from 'vitest';
+import { RankingCard } from '@/components/RankingCard/RankingCard';
+import type { RankedRecipe } from '@/market/ranking';
+import { testRecipe } from '@/test/catalogFixture';
+
+const SMELT: RankedRecipe = {
+  recipe: testRecipe('Smelt Bronze'),
+  reagents: [
+    { itemId: 2840, name: 'Copper Bar', icon: null, count: 1, unitPrice: 113, source: 'auction' },
+    { itemId: 3576, name: 'Tin Bar', icon: null, count: 1, unitPrice: 200, source: 'vendor' },
+  ],
+  revenue: 1710,
+  cost: 313,
+  profit: 1397,
+  margin: 1397 / 313,
+};
+
+describe('RankingCard', () => {
+  it('shows the margin, money and reagents', () => {
+    render(<RankingCard ranked={SMELT} onAdd={vi.fn()} />);
+    const card = screen.getByRole('button', { name: /Add Smelt Bronze to the market list/ });
+    expect(within(card).getByText('446%')).toBeInTheDocument();
+    expect(within(card).getByText('Mining')).toBeInTheDocument();
+    expect(within(card).getByText('13s 97c')).toBeInTheDocument(); // profit (sr-only text)
+    expect(within(card).getByText('17s 10c')).toBeInTheDocument(); // sells for
+    expect(within(card).getByText('3s 13c')).toBeInTheDocument(); // costs
+    const tin = within(card).getByRole('listitem', { name: 'Tin Bar' });
+    expect(within(tin).getByText('Vendor')).toBeInTheDocument();
+    expect(within(tin).getByText('2s')).toBeInTheDocument();
+    expect(within(within(card).getByRole('listitem', { name: 'Copper Bar' })).queryByText('Vendor')).toBeNull();
+  });
+
+  it('adds the recipe when clicked', async () => {
+    const onAdd = vi.fn();
+    render(<RankingCard ranked={SMELT} onAdd={onAdd} />);
+    await userEvent.click(screen.getByRole('button', { name: /Add Smelt Bronze/ }));
+    expect(onAdd).toHaveBeenCalledWith(SMELT.recipe);
+  });
+});

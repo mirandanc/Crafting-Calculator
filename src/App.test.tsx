@@ -586,6 +586,23 @@ describe('App', () => {
     expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
   });
 
+  it('sends one craft from the market analysis to the market list with a chime, staying on the analysis', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse({ ...AUCTION, prices: { ...AUCTION.prices, '2841': 900 } }));
+    const { user, list } = await renderApp();
+    await user.click(screen.getByRole('tab', { name: 'Market analysis' }));
+    await user.click(screen.getByRole('button', { name: 'Add Smelt Bronze to the market list' }));
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(list()).getByText('Copper Bar')).toBeInTheDocument();
+    // Market prices alone complete the recipe, so the fully-priced chime doesn't play again.
+    await waitForChime();
+    expect(play).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('tab', { name: 'Market list' }));
+    expect(articleNames()).toEqual(['Recipe 1']);
+    expect(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' })).toHaveValue('Smelt Bronze');
+    expect(within(recipeArticle(1)).getByLabelText('Amount wanted')).toHaveValue(2);
+  });
+
   it('narrows the recipe search to the professions picked', async () => {
     const { user } = await renderApp();
     await user.click(screen.getByText('All professions'));
