@@ -38,7 +38,8 @@ previous one:
   before the script and uploads it after. If it is missing or unreadable, a new history starts.
 
 - Locally: put `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET` in `.env`, then `npm run fetch:auction-prices`
-  (writes the git-ignored `auction-prices.json` and `auction-history.json`; a second run compares with the first) or
+  (writes the git-ignored `auction-prices.json` and `auction-history.json`; a later run compares with it once
+  Blizzard has published new data, about hourly) or
   `npm run auction:houses` (lists the Alliance houses).
 - GitHub secrets the workflow needs: `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `CLOUDFLARE_API_TOKEN`
   (Workers KV Storage: Edit only) and `CLOUDFLARE_ACCOUNT_ID`.
