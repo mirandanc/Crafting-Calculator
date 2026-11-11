@@ -1,4 +1,5 @@
-import { useRef, type KeyboardEvent } from 'react';
+import { useEffect, useRef, type KeyboardEvent } from 'react';
+import { ItemIcon } from '@/components/ItemIcon/ItemIcon';
 import styles from '@/components/ProfessionPicker/ProfessionPicker.module.css';
 
 type ProfessionPickerProps = {
@@ -10,6 +11,27 @@ type ProfessionPickerProps = {
 
 const ALL_LABEL = 'All professions';
 const LISTED_UP_TO = 2;
+
+/** ForeverDB icon file per profession, as its /professions list gives them. */
+const PROFESSION_ICONS: Record<string, number> = {
+  Alchemy: 136240,
+  Blacksmithing: 136241,
+  Cooking: 133971,
+  Enchanting: 136244,
+  Engineering: 136243,
+  'First Aid': 135966,
+  Fishing: 136245,
+  Herbalism: 136246,
+  Leatherworking: 136247,
+  Mining: 136248,
+  Skinning: 134366,
+  Tailoring: 136249,
+};
+
+function iconOf(profession: string): string | null {
+  const icon: number | undefined = PROFESSION_ICONS[profession];
+  return icon === undefined ? null : `https://foreverdb.net/icons/${icon}.webp`;
+}
 
 function summaryOf(professions: string[], selected: string[]): string {
   if (selected.length === 0) return ALL_LABEL;
@@ -28,6 +50,16 @@ export function ProfessionPicker({ professions, selected, onChange }: Profession
         ? selected.filter((candidate) => candidate !== profession)
         : professions.filter((candidate) => candidate === profession || selected.includes(candidate)),
     );
+
+  // A press anywhere outside the open menu closes it, like any other dropdown.
+  useEffect(() => {
+    const closeOnOutsidePress = (event: PointerEvent) => {
+      const details = detailsRef.current;
+      if (details !== null && details.open && !details.contains(event.target as Node)) details.open = false;
+    };
+    document.addEventListener('pointerdown', closeOnOutsidePress);
+    return () => document.removeEventListener('pointerdown', closeOnOutsidePress);
+  }, []);
 
   // Escape closes an open menu, handing focus back to the summary so the keyboard user stays in place.
   const closeOnEscape = (event: KeyboardEvent<HTMLDetailsElement>) => {
@@ -49,12 +81,16 @@ export function ProfessionPicker({ professions, selected, onChange }: Profession
           <button type="button" className={styles.all} aria-label="Clear, show all professions" onClick={() => onChange([])}>
             Clear
           </button>
-          {professions.map((profession) => (
-            <label key={profession} className={styles.option}>
-              <input type="checkbox" checked={selected.includes(profession)} onChange={() => toggle(profession)} />
-              {profession}
-            </label>
-          ))}
+          {professions.map((profession) => {
+            const icon = iconOf(profession);
+            return (
+              <label key={profession} className={styles.option}>
+                <input type="checkbox" checked={selected.includes(profession)} onChange={() => toggle(profession)} />
+                {icon === null ? <span className={styles.iconGap} aria-hidden="true" /> : <ItemIcon src={icon} size="small" />}
+                {profession}
+              </label>
+            );
+          })}
         </div>
       </details>
     </div>

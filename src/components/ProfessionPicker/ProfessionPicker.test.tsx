@@ -43,4 +43,30 @@ describe('ProfessionPicker', () => {
     render(<ProfessionPicker professions={[]} selected={[]} onChange={vi.fn()} />);
     expect(screen.getByRole('group', { name: 'Professions' })).toHaveAttribute('aria-disabled', 'true');
   });
+
+  it('closes when pressed outside the menu, but not inside it', async () => {
+    const { container } = render(
+      <>
+        <ProfessionPicker professions={PROFESSIONS} selected={[]} onChange={vi.fn()} />
+        <p>Elsewhere</p>
+      </>,
+    );
+    const details = container.querySelector('details');
+    await userEvent.click(screen.getByText('Professions'));
+    await userEvent.click(screen.getByRole('checkbox', { name: 'Mining' }));
+    expect(details).toHaveAttribute('open');
+    await userEvent.click(screen.getByText('Elsewhere'));
+    expect(details).not.toHaveAttribute('open');
+  });
+
+  it('shows each profession with its icon', async () => {
+    const { container } = render(<ProfessionPicker professions={[...PROFESSIONS, 'Unknown Craft']} selected={[]} onChange={vi.fn()} />);
+    await userEvent.click(screen.getByText('Professions'));
+    const icons = [...container.querySelectorAll('label img')].map((img) => img.getAttribute('src'));
+    expect(icons).toEqual([
+      'https://foreverdb.net/icons/136240.webp',
+      'https://foreverdb.net/icons/136248.webp',
+      'https://foreverdb.net/icons/136249.webp',
+    ]);
+  });
 });
