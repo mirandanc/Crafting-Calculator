@@ -26,20 +26,22 @@ const MANY: RecipeCatalog = {
   recipes: Array.from({ length: 30 }, (_, index): CatalogRecipe => ({ ...TEST_CATALOG.recipes[1], id: index + 1, name: `Vest ${String(index + 1).padStart(2, '0')}` })),
 };
 
+const analysisProps = (overrides: Partial<MarketAnalysisProps> = {}): MarketAnalysisProps => ({
+  catalog: TEST_CATALOG,
+  catalogFailed: false,
+  auction: { list: LIST, failed: false },
+  professions: [],
+  minProfit: { gold: 0, silver: 0, copper: 50 },
+  onMinProfitChange: vi.fn(),
+  onMinProfitBlur: vi.fn(),
+  sort: 'profitPerDay',
+  onSortChange: vi.fn(),
+  onAdd: vi.fn(),
+  ...overrides,
+});
+
 const renderAnalysis = (overrides: Partial<MarketAnalysisProps> = {}) => {
-  const props: MarketAnalysisProps = {
-    catalog: TEST_CATALOG,
-    catalogFailed: false,
-    auction: { list: LIST, failed: false },
-    professions: [],
-    minProfit: { gold: 0, silver: 0, copper: 50 },
-    onMinProfitChange: vi.fn(),
-    onMinProfitBlur: vi.fn(),
-    sort: 'profitPerDay',
-    onSortChange: vi.fn(),
-    onAdd: vi.fn(),
-    ...overrides,
-  };
+  const props = analysisProps(overrides);
   render(<MarketAnalysis {...props} />);
   return props;
 };
@@ -143,5 +145,23 @@ describe('MarketAnalysis', () => {
     renderAnalysis({ auction: { list: { ...SOLD, salesDays: 0.25 }, failed: false }, minProfit: { gold: 100, silver: 0, copper: 0 } });
     expect(screen.getByText('Sales from the last < 1 day')).toBeInTheDocument();
     expect(screen.getByText('No recipe makes at least 100g per craft right now.')).toBeInTheDocument();
+  });
+
+  it.each<[string, Partial<MarketAnalysisProps>]>([
+    ['while loading', { auction: { list: null, failed: false } }],
+    ['when the auction prices failed', { auction: { list: null, failed: true } }],
+    ['when the recipe book failed', { catalog: null, catalogFailed: true, auction: { list: SOLD, failed: false } }],
+  ])('shows no sales note %s', (_, overrides) => {
+    renderAnalysis(overrides);
+    expect(screen.queryByText(/^Sales /)).toBeNull();
+  });
+
+  it('starts over at the first 25 when the sort changes', async () => {
+    const props = analysisProps({ catalog: MANY });
+    const { rerender } = render(<MarketAnalysis {...props} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Show more' }));
+    expect(cardNames()).toHaveLength(30);
+    rerender(<MarketAnalysis {...props} sort="margin" />);
+    expect(cardNames()).toHaveLength(25);
   });
 });

@@ -39,6 +39,10 @@
   transition: color 0.2s, background-color 0.2s;
 }
 
+.choice:hover:not(:has(:checked)) {
+  background: rgba(125, 29, 16, 0.1);
+}
+
 .choice:has(:checked) {
   color: var(--color-paper-cream);
   background: var(--color-rubric);
@@ -98,6 +102,21 @@
 /* A second ring alongside the global outline: the outline alone is hard to see on parchment. */
 .more:focus-visible {
   box-shadow: 0 0 0 3px var(--color-focus);
+}
+
+/* High contrast drops backgrounds and shadows, so the checked option and the focus need system colours. */
+@media (forced-colors: active) {
+  .choice:has(:checked) {
+    color: HighlightText;
+    background: Highlight;
+    forced-color-adjust: none;
+  }
+
+  .choice:has(:focus-visible) {
+    outline: 2px solid CanvasText;
+    outline-offset: 2px;
+    box-shadow: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
