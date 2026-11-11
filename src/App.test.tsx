@@ -627,6 +627,63 @@ describe('App', () => {
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Smelt BronzeMining']);
   });
 
+  const MARKET: AuctionPriceList = {
+    ...AUCTION,
+    prices: { '2840': 113, '3576': 250, '2841': 900, '10421': 2000, '4371': 5000 },
+    quantities: { '2841': 10, '10421': 10, '4371': 10 },
+  };
+
+  const openAnalysis = (user: User) => user.click(screen.getByRole('tab', { name: 'Market analysis' }));
+  const cards = () =>
+    screen.queryAllByRole('button', { name: /to the market list$/ }).map((card) => card.getAttribute('aria-label'));
+
+  it('ranks recipes on the Market analysis tab and keeps the shopping list beside it', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(MARKET));
+    const { user, list } = await renderApp();
+    await openAnalysis(user);
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Market analysis' })).toBeInTheDocument();
+    expect(cards()).toEqual([
+      'Add Smelt Bronze to the market list',
+      'Add Rough Copper Vest to the market list',
+      'Add Bronze Tube to the market list',
+    ]);
+    expect(within(list()).getByText('Nothing to buy yet.')).toBeInTheDocument();
+  });
+
+  it('filters by profession on both tabs and by minimum profit, and remembers them', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(MARKET));
+    const first = await renderApp();
+    await openAnalysis(first.user);
+    await first.user.click(screen.getByText('Professions'));
+    await first.user.click(screen.getByRole('checkbox', { name: 'Mining' }));
+    await first.user.click(screen.getByRole('checkbox', { name: 'Engineering' }));
+    expect(cards()).toEqual(['Add Smelt Bronze to the market list', 'Add Bronze Tube to the market list']);
+    const silver = screen.getByLabelText('Minimum profit silver');
+    await first.user.type(silver, '20');
+    await first.user.tab();
+    expect(cards()).toEqual(['Add Bronze Tube to the market list']);
+    first.unmount();
+
+    const second = await renderApp();
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Minimum profit silver')).toHaveValue(20);
+    expect(cards()).toEqual(['Add Bronze Tube to the market list']);
+    await second.user.click(screen.getByRole('tab', { name: 'Market list' }));
+    const search = within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' });
+    await second.user.type(search, 'bronze');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      expect.stringContaining('Bronze Tube'),
+      expect.stringContaining('Smelt Bronze'),
+    ]);
+  });
+
+  it('says the ranking needs auction prices when they are unavailable', async () => {
+    const { user } = await renderApp();
+    await openAnalysis(user);
+    expect(screen.getByText("Auction prices are unavailable, so recipes can't be ranked right now.")).toBeInTheDocument();
+  });
+
   it('ignores saved professions the recipe book no longer has', async () => {
     const saved: Preferences = { tab: 'list', professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50) };
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify(saved));

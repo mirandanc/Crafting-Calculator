@@ -14,7 +14,7 @@ WoW Forever crafting calculator: pick recipes and items, price them, and get a s
 
 ## Recipe data
 
-`src/data/recipes.json` is generated from the ForeverDB API and committed. After a game patch, refresh it with `npm run fetch:recipes` (it reads the key from `.env` and takes about 10 minutes because of ForeverDB's 60 requests/minute limit), then commit the new JSON.
+`src/data/recipes.json` is generated from the ForeverDB API and committed. After a game patch, refresh it with `npm run fetch:recipes` (it reads the key from `.env` and, because it now also reads each recipe's cooldown and vendor stock, takes about an hour), then commit the new JSON.
 
 ## Auction prices
 
@@ -31,6 +31,16 @@ without saving, so the page keeps the last good prices and shows their age at th
   (Workers KV Storage: Edit only) and `CLOUDFLARE_ACCOUNT_ID`.
 - GitHub pauses scheduled workflows after 60 days without commits; run "Auction prices" by hand from the
   Actions tab to turn the schedule back on.
+
+## Market analysis
+
+The left page has two bookmarks: "Market list" (the shopping list sheet) and "Market analysis", which ranks
+the recipes most worth crafting right now.
+
+- The margin is the profit after the auction house's 5% cut, divided by the reagent cost.
+- Reagents use the cheaper of the auction and vendor price; a vendor price is tagged "Vendor".
+- Recipes with a cooldown are left out, and so are results where fewer than 5 are listed for sale.
+- The minimum profit and the chosen professions are saved in the browser, per tab.
 
 ## Deployment
 
