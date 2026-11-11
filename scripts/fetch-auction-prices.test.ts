@@ -5,6 +5,7 @@ import {
   createBlizzardClient,
   marketValue,
   marketValues,
+  totalQuantities,
   unitListings,
   type BlizzardClientDeps,
   type Listing,
@@ -117,6 +118,13 @@ describe('marketValues', () => {
   });
 });
 
+describe('totalQuantities', () => {
+  it('sums the quantity for sale per item id', () => {
+    const listings = [listing(1, 50, 10), listing(2, 70, 3), listing(1, 90, 5)];
+    expect(totalQuantities(listings)).toEqual({ '1': 15, '2': 3 });
+  });
+});
+
 const HOUSE: AuctionHouse = { ruleset: 1, id: 110, name: 'Alliance Auction House' };
 
 describe('buildPriceList', () => {
@@ -126,6 +134,7 @@ describe('buildPriceList', () => {
       updatedAt: '2026-11-10T16:00:00.000Z',
       house: { ruleset: 1, id: 110, name: 'Alliance Auction House' },
       prices: { '2840': 113 },
+      quantities: { '2840': 20 },
     });
   });
 });

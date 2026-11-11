@@ -10,6 +10,7 @@ import {
   priceKey,
   priceOf,
   unitPriceOf,
+  withCraftedRecipe,
   withItemName,
   withLinkedItem,
   withoutEntry,
@@ -20,6 +21,7 @@ import {
 } from '@/sheet/sheet';
 import { summarizeShopping } from '@/sheet/shopping';
 import { TEST_CATALOG, testRecipe } from '@/test/catalogFixture';
+import { recipeBlock } from '@/test/sheetFixtures';
 
 function deepFreeze<T>(value: T): T {
   if (value !== null && typeof value === 'object' && !Object.isFrozen(value)) {
@@ -153,6 +155,29 @@ describe('item rows', () => {
     });
     expect(linked).toMatchObject({ name: 'Copper Bar', itemId: 2840, icon: 'https://foreverdb.net/icons/133216.webp' });
     expect(withItemName(linked, 'Copper Bars')).toMatchObject({ name: 'Copper Bars', itemId: null, icon: null });
+  });
+});
+
+describe('withCraftedRecipe', () => {
+  it('fills a page that holds only an empty recipe field', () => {
+    const empty = createRecipeBlock();
+    const [block] = withCraftedRecipe([empty], testRecipe('Smelt Bronze'), TEST_CATALOG.items);
+    expect(block).toMatchObject({ id: empty.id, kind: 'recipe', wanted: 2 });
+    expect(block.kind === 'recipe' && block.recipe?.name).toBe('Smelt Bronze');
+  });
+
+  it('adds one craft after the existing entries', () => {
+    const existing = recipeBlock('a', 'Bronze Tube', 1);
+    const entries = withCraftedRecipe([existing], testRecipe('Rough Copper Vest'), TEST_CATALOG.items);
+    expect(entries).toHaveLength(2);
+    expect(entries[0]).toBe(existing);
+    expect(entries[1]).toMatchObject({ kind: 'recipe', wanted: 1 });
+  });
+
+  it('asks for one craft when a craft makes a fractional amount', () => {
+    const recipe = { ...testRecipe('Smelt Bronze'), makes: { itemId: 2841, name: 'Bronze Bar', count: 1.5 } };
+    const [block] = withCraftedRecipe([createRecipeBlock()], recipe, TEST_CATALOG.items);
+    expect(block).toMatchObject({ wanted: 1 });
   });
 });
 

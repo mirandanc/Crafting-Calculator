@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from '@testing-library/react';
 import { useState } from 'react';
 import { describe, expect, it, vi } from 'vitest';
 import { EntryList } from '@/components/EntryList/EntryList';
-import type { AuctionPricesByKey } from '@/prices/auctionPrices';
+import type { MarketPricesByKey } from '@/prices/marketPrices';
 import { createRecipeBlock, withoutEntry, type Entry, type Prices } from '@/sheet/sheet';
 import type { SheetActions } from '@/sheet/useSheet';
 import { coins, itemRow as namedItemRow } from '@/test/sheetFixtures';
@@ -13,11 +13,12 @@ type HarnessProps = {
   initialEntries: Entry[];
   typedPrices?: Prices;
   /** Given, the auction list counts as loaded. */
-  auctionByKey?: AuctionPricesByKey;
+  marketByKey?: MarketPricesByKey;
   onClearPrice?: (key: string) => void;
+  professions?: string[];
 };
 
-function Harness({ initialEntries, typedPrices = {}, auctionByKey, onClearPrice = () => {} }: HarnessProps) {
+function Harness({ initialEntries, typedPrices = {}, marketByKey, onClearPrice = () => {}, professions = [] }: HarnessProps) {
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const actions: SheetActions = {
     addRecipe: () => setEntries((current) => [...current, createRecipeBlock()]),
@@ -25,6 +26,7 @@ function Harness({ initialEntries, typedPrices = {}, auctionByKey, onClearPrice 
     removeEntry: (id) => setEntries((current) => withoutEntry(current, id)),
     eraseAll: () => setEntries([createRecipeBlock()]),
     chooseRecipe: () => {},
+    addCraftedRecipe: () => {},
     setWanted: () => {},
     removeReagent: () => {},
     renameItem: () => {},
@@ -40,9 +42,10 @@ function Harness({ initialEntries, typedPrices = {}, auctionByKey, onClearPrice 
       entries={entries}
       prices={typedPrices}
       typedPrices={typedPrices}
-      auctionByKey={auctionByKey ?? {}}
-      auctionLoaded={auctionByKey !== undefined}
+      marketByKey={marketByKey ?? {}}
+      auctionLoaded={marketByKey !== undefined}
       catalog={null}
+      professions={professions}
       actions={actions}
       onReachable={() => {}}
     />
@@ -92,7 +95,7 @@ describe('EntryList', () => {
       <Harness
         initialEntries={[namedItemRow('a', 'Tin Bar', 1, 3576), namedItemRow('b', 'Copper Ore', 1, 2770), namedItemRow('c', '', 1, 2771)]}
         typedPrices={{ 'name:tin bar': coins(10) }}
-        auctionByKey={{ 'name:tin bar': 50 }}
+        marketByKey={{ 'name:tin bar': { copper: 50, source: 'auction' } }}
         onClearPrice={onClearPrice}
       />,
     );

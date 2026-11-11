@@ -5,7 +5,7 @@ import { ReagentRow } from '@/components/ReagentRow/ReagentRow';
 import styles from '@/components/RecipeBlockEditor/RecipeBlockEditor.module.css';
 import { RemoveButton } from '@/components/RemoveButton/RemoveButton';
 import type { Coins } from '@/money/money';
-import { auctionHintOf, type AuctionPricesByKey } from '@/prices/auctionPrices';
+import { priceHintOf, type MarketPricesByKey } from '@/prices/marketPrices';
 import { searchRecipes, type CatalogItem, type CatalogRecipe, type RecipeCatalog } from '@/recipes/catalog';
 import { craftNote, planCrafts, reagentQuantity } from '@/sheet/crafts';
 import { MAX_WANTED, parseWanted, priceKey, priceOf, type Prices, type RecipeBlock } from '@/sheet/sheet';
@@ -14,12 +14,14 @@ type RecipeBlockEditorProps = {
   block: RecipeBlock;
   position: number;
   catalog: RecipeCatalog | null;
-  /** The prices in effect: typed over auction. */
+  /** The prices in effect: typed over market. */
   prices: Prices;
   /** Only the prices the player typed. */
   typedPrices: Prices;
-  auctionByKey: AuctionPricesByKey;
+  marketByKey: MarketPricesByKey;
   auctionLoaded: boolean;
+  /** Narrows the recipe search; empty means all. */
+  professions: string[];
   onChoose: (recipe: CatalogRecipe, items: Record<string, CatalogItem>) => void;
   onWantedChange: (wanted: number | null) => void;
   onRemoveReagent: (itemId: number) => void;
@@ -35,8 +37,9 @@ export function RecipeBlockEditor({
   catalog,
   prices,
   typedPrices,
-  auctionByKey,
+  marketByKey,
   auctionLoaded,
+  professions,
   onChoose,
   onWantedChange,
   onRemoveReagent,
@@ -49,7 +52,7 @@ export function RecipeBlockEditor({
   // The search text is local: a picked recipe stays until another one is picked, and leaving the
   // field puts its name back.
   const [query, setQuery] = useState(recipe?.name ?? '');
-  const matches = useMemo(() => (catalog === null ? [] : searchRecipes(catalog, query)), [catalog, query]);
+  const matches = useMemo(() => (catalog === null ? [] : searchRecipes(catalog, query, professions)), [catalog, query, professions]);
   const options: SearchOption[] = matches.map((match) => ({
     key: String(match.id),
     label: match.name,
@@ -117,7 +120,7 @@ export function RecipeBlockEditor({
                     recipeName={recipe.name}
                     quantity={reagentQuantity(reagent.perCraft, plan)}
                     price={priceOf(prices, key)}
-                    hint={auctionHintOf(key, true, typedPrices, auctionByKey, auctionLoaded)}
+                    hint={priceHintOf(key, true, typedPrices, marketByKey, auctionLoaded)}
                     onPriceChange={(price) => onPriceChange(key, price)}
                     onPriceBlur={() => onPriceBlur(key)}
                     onRestorePrice={() => onRestorePrice(key)}

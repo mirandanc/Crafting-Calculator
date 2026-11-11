@@ -3,20 +3,22 @@ import styles from '@/components/EntryList/EntryList.module.css';
 import { ItemRowEditor } from '@/components/ItemRowEditor/ItemRowEditor';
 import { RecipeBlockEditor } from '@/components/RecipeBlockEditor/RecipeBlockEditor';
 import type { Coins } from '@/money/money';
-import { auctionHintOf, type AuctionHint as AuctionHintState, type AuctionPricesByKey } from '@/prices/auctionPrices';
+import { priceHintOf, type MarketPricesByKey, type PriceHint } from '@/prices/marketPrices';
 import type { RecipeCatalog } from '@/recipes/catalog';
 import { priceKey, priceOf, type Entry, type Prices } from '@/sheet/sheet';
 import type { SheetActions } from '@/sheet/useSheet';
 
 type EntryListProps = {
   entries: Entry[];
-  /** The prices in effect: typed over auction. */
+  /** The prices in effect: typed over market. */
   prices: Prices;
   /** Only the prices the player typed. */
   typedPrices: Prices;
-  auctionByKey: AuctionPricesByKey;
+  marketByKey: MarketPricesByKey;
   auctionLoaded: boolean;
   catalog: RecipeCatalog | null;
+  /** Narrows the recipe search; empty means all. */
+  professions: string[];
   actions: SheetActions;
   onReachable: (reachable: boolean) => void;
 };
@@ -27,7 +29,7 @@ type FocusTarget = 'cancel' | 'erase' | null;
 type EntryFocusTarget = { kind: 'entry'; id: string } | { kind: 'lastEntry' } | { kind: 'addRecipe' } | null;
 
 const NO_PRICE: Coins = { gold: 0, silver: 0, copper: 0 };
-const NO_HINT: AuctionHintState = { kind: 'none' };
+const NO_HINT: PriceHint = { kind: 'none' };
 
 function PlusIcon() {
   return (
@@ -38,7 +40,7 @@ function PlusIcon() {
   );
 }
 
-export function EntryList({ entries, prices, typedPrices, auctionByKey, auctionLoaded, catalog, actions, onReachable }: EntryListProps) {
+export function EntryList({ entries, prices, typedPrices, marketByKey, auctionLoaded, catalog, professions, actions, onReachable }: EntryListProps) {
   const [confirmingErase, setConfirmingErase] = useState(false);
   const questionId = useId();
   const focusTargetRef = useRef<FocusTarget>(null);
@@ -121,8 +123,9 @@ export function EntryList({ entries, prices, typedPrices, auctionByKey, auctionL
                   catalog={catalog}
                   prices={prices}
                   typedPrices={typedPrices}
-                  auctionByKey={auctionByKey}
+                  marketByKey={marketByKey}
                   auctionLoaded={auctionLoaded}
+                  professions={professions}
                   onChoose={(recipe, items) => actions.chooseRecipe(entry.id, recipe, items)}
                   onWantedChange={(wanted) => actions.setWanted(entry.id, wanted)}
                   onRemoveReagent={(itemId) => actions.removeReagent(entry.id, itemId)}
@@ -142,7 +145,7 @@ export function EntryList({ entries, prices, typedPrices, auctionByKey, auctionL
                 row={entry}
                 position={index + 1}
                 price={itemKey === null ? NO_PRICE : priceOf(prices, itemKey)}
-                hint={itemKey === null ? NO_HINT : auctionHintOf(itemKey, entry.itemId !== null, typedPrices, auctionByKey, auctionLoaded)}
+                hint={itemKey === null ? NO_HINT : priceHintOf(itemKey, entry.itemId !== null, typedPrices, marketByKey, auctionLoaded)}
                 onRename={(name) => actions.renameItem(entry.id, name)}
                 onLink={(item) => actions.linkItem(entry.id, item)}
                 onQuantityChange={(quantity) => actions.setItemQuantity(entry.id, quantity)}

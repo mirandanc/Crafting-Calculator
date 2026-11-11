@@ -1,10 +1,10 @@
-import { AuctionHint } from '@/components/AuctionHint/AuctionHint';
 import { ItemIcon } from '@/components/ItemIcon/ItemIcon';
 import { MoneyInput } from '@/components/MoneyInput/MoneyInput';
+import { PriceHint } from '@/components/PriceHint/PriceHint';
 import styles from '@/components/ReagentRow/ReagentRow.module.css';
 import { RemoveButton } from '@/components/RemoveButton/RemoveButton';
 import type { Coins } from '@/money/money';
-import type { AuctionHint as AuctionHintState } from '@/prices/auctionPrices';
+import type { PriceHint as PriceHintState } from '@/prices/marketPrices';
 import type { ReagentLine } from '@/sheet/sheet';
 
 type ReagentRowProps = {
@@ -13,7 +13,7 @@ type ReagentRowProps = {
   /** Locked: per-craft count × crafts. */
   quantity: number;
   price: Coins;
-  hint: AuctionHintState;
+  hint: PriceHintState;
   onPriceChange: (price: Coins) => void;
   onPriceBlur: () => void;
   onRestorePrice: () => void;
@@ -48,7 +48,7 @@ export function ReagentRow({
         </span>
         <div className={styles.price}>
           <MoneyInput label={`${reagent.name} price`} caption="each" value={price} onChange={onPriceChange} onBlur={onPriceBlur} />
-          <AuctionHint hint={hint} itemName={reagent.name} onRestore={onRestorePrice} />
+          <PriceHint hint={hint} itemName={reagent.name} onRestore={onRestorePrice} />
         </div>
       </div>
     </li>

@@ -1,0 +1,63 @@
+.analysis {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+  min-width: 0;
+}
+
+.minimum {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 6px 10px;
+  font-size: 16px;
+}
+
+.caption {
+  font-family: var(--font-caps);
+  font-size: 15px;
+  letter-spacing: 0.05em;
+  color: var(--color-ink-soft);
+}
+
+.cards {
+  display: grid;
+  gap: 12px;
+  margin: 0;
+  padding: 0;
+}
+
+.note {
+  margin: 0;
+  font-style: italic;
+  color: var(--color-ink-soft);
+}
+
+.more {
+  align-self: center;
+  padding: 6px 18px;
+  border: 1px solid rgba(125, 29, 16, 0.45);
+  border-radius: 4px;
+  background: transparent;
+  font-family: var(--font-caps);
+  font-size: 17px;
+  color: var(--color-rubric);
+  cursor: pointer;
+  transition: color 0.2s, background-color 0.2s;
+}
+
+.more:hover {
+  color: var(--color-paper-cream);
+  background: var(--color-rubric);
+}
+
+/* A second ring alongside the global outline: the outline alone is hard to see on parchment. */
+.more:focus-visible {
+  box-shadow: 0 0 0 3px var(--color-focus);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .more {
+    transition: none;
+  }
+}

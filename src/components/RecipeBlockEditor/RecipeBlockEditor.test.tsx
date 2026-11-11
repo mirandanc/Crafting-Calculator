@@ -3,7 +3,7 @@ import userEvent from '@testing-library/user-event';
 import type { ComponentProps } from 'react';
 import { describe, expect, it, vi, type Mock } from 'vitest';
 import { RecipeBlockEditor } from '@/components/RecipeBlockEditor/RecipeBlockEditor';
-import type { AuctionPricesByKey } from '@/prices/auctionPrices';
+import type { MarketPricesByKey } from '@/prices/marketPrices';
 import type { Prices, RecipeBlock } from '@/sheet/sheet';
 import { TEST_CATALOG } from '@/test/catalogFixture';
 import { coins, recipeBlock } from '@/test/sheetFixtures';
@@ -23,12 +23,12 @@ type Handlers = {
 /** Typed prices and a loaded auction list; left out, the auction list hasn't loaded and no hint shows. */
 type Auction = {
   typedPrices: Prices;
-  auctionByKey: AuctionPricesByKey;
+  marketByKey: MarketPricesByKey;
 };
 
 const EMPTY_BLOCK: RecipeBlock = { kind: 'recipe', id: 'r', recipe: null, wanted: null };
 
-const renderBlock = (block: RecipeBlock, prices: Prices = {}, auction: Auction | null = null) => {
+const renderBlock = (block: RecipeBlock, prices: Prices = {}, auction: Auction | null = null, professions: string[] = []) => {
   const handlers: Handlers = {
     onChoose: vi.fn(),
     onWantedChange: vi.fn(),
@@ -45,8 +45,9 @@ const renderBlock = (block: RecipeBlock, prices: Prices = {}, auction: Auction |
       catalog={TEST_CATALOG}
       prices={prices}
       typedPrices={auction?.typedPrices ?? {}}
-      auctionByKey={auction?.auctionByKey ?? {}}
+      marketByKey={auction?.marketByKey ?? {}}
       auctionLoaded={auction !== null}
+      professions={professions}
       {...handlers}
     />,
   );
@@ -60,6 +61,14 @@ describe('RecipeBlockEditor', () => {
     await user.click(screen.getByRole('option', { name: /Smelt Bronze/ }));
     expect(handlers.onChoose).toHaveBeenCalledWith(TEST_CATALOG.recipes[0], TEST_CATALOG.items);
     expect(within(article).getByRole('combobox', { name: 'Recipe' })).toHaveValue('Smelt Bronze');
+  });
+
+  it('only offers the recipes of the selected professions', async () => {
+    const { user, article } = renderBlock(EMPTY_BLOCK, {}, null, ['Mining']);
+    await user.type(within(article).getByRole('combobox', { name: 'Recipe' }), 'bronze');
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveAccessibleName(/Smelt Bronze/);
   });
 
   it('shows ×N, the craft note and locked reagent quantities', () => {
@@ -93,7 +102,7 @@ describe('RecipeBlockEditor', () => {
     const typed: Prices = { 'name:copper bar': coins(10) };
     const { handlers, user, article } = renderBlock(recipeBlock('r', 'Smelt Bronze', 1), typed, {
       typedPrices: typed,
-      auctionByKey: { 'name:copper bar': 1240 },
+      marketByKey: { 'name:copper bar': { copper: 1240, source: 'auction' } },
     });
     const copper = within(article).getByRole('listitem', { name: 'Copper Bar' });
     await user.click(within(copper).getByRole('button', { name: 'Use the auction price for Copper Bar (12s 40c)' }));

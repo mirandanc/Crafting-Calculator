@@ -4,10 +4,12 @@ import { afterEach, beforeEach, describe, expect, it, vi, type Mock, type MockIn
 import { App } from '@/App';
 import recipesUrl from '@/data/recipes.json?url';
 import type { ForeverItem } from '@/foreverdb/itemSearch';
+import { PREFERENCES_KEY, type Preferences } from '@/market/preferences';
 import type { AuctionPriceList } from '@/prices/auctionPrices';
 import { loadRecipeCatalog } from '@/recipes/loadRecipeCatalog';
 import { saveSheet, STORAGE_KEY } from '@/sheet/storage';
 import { TEST_CATALOG } from '@/test/catalogFixture';
+import { coins, recipeBlock } from '@/test/sheetFixtures';
 
 type User = ReturnType<typeof userEvent.setup>;
 
@@ -57,6 +59,22 @@ const renderApp = async (): Promise<RenderedApp> => {
     await vi.advanceTimersByTimeAsync(0);
   });
   return { user, unmount: view.unmount, list: () => screen.getByRole('region', { name: 'Shopping list' }) };
+};
+
+/** Renders the App from a fresh module graph, so the recipe book is fetched again instead of read from the cache. */
+const renderFreshApp = async (): Promise<User> => {
+  vi.resetModules();
+  const fresh = await import('@/App');
+  const freshCatalog = await import('@/recipes/loadRecipeCatalog');
+  const user = userEvent.setup({ advanceTimers: vi.advanceTimersByTime });
+  render(<fresh.App />);
+  await act(async () => {
+    await freshCatalog.loadRecipeCatalog();
+  });
+  await act(async () => {
+    await vi.advanceTimersByTimeAsync(0);
+  });
+  return user;
 };
 
 const recipeArticle = (position: number) => screen.getByRole('article', { name: `Recipe ${position}` });
@@ -526,10 +544,158 @@ describe('App', () => {
     expect(within(screen.getByRole('listitem', { name: 'Tin Bar' })).queryByText('Not on AH')).toBeNull();
   });
 
+  it('fills a cheaper vendor price and tags it', async () => {
+    answerRecipes.mockImplementation(async () => jsonResponse({ ...TEST_CATALOG, vendorPrices: { '3576': 200 } }));
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(AUCTION));
+    const user = await renderFreshApp();
+    await pickRecipe(user, 1, 'smelt', /Smelt Bronze/);
+    const tinBar = screen.getByRole('listitem', { name: 'Tin Bar' });
+    expect(within(tinBar).getByText('Vendor')).toBeInTheDocument();
+    expect(screen.getByLabelText('Tin Bar price silver')).toHaveValue(2);
+    const list = screen.getByRole('region', { name: 'Shopping list' });
+    expect(within(totalCost(list)).getByText('3s 13c')).toBeInTheDocument();
+  });
+
+  it('stays silent when vendor prices from the recipe book finish an entry', async () => {
+    answerRecipes.mockImplementation(async () => jsonResponse({ ...TEST_CATALOG, vendorPrices: { '3576': 200 } }));
+    // Copper Bar is typed; Tin Bar has no price until the recipe book brings its vendor price.
+    saveSheet({ entries: [recipeBlock('a', 'Smelt Bronze', 2)], prices: { 'name:copper bar': coins(10) }, muted: false });
+    await renderFreshApp();
+    expect(screen.getByLabelText('Tin Bar price silver')).toHaveValue(2);
+    await waitForChime();
+    expect(play).not.toHaveBeenCalled();
+  });
+
   it('says when auction prices are unavailable and keeps typed pricing working', async () => {
     const { user } = await renderApp();
     expect(screen.getByText('Auction prices unavailable')).toBeInTheDocument();
     await pickRecipe(user, 1, 'smelt', /Smelt Bronze/);
     expect(screen.getByLabelText('Copper Bar price copper')).toHaveValue(null);
+  });
+
+  it('flips the left page between the market list and the market analysis, and remembers the tab', async () => {
+    const { user, unmount } = await renderApp();
+    expect(screen.getByRole('tab', { name: 'Market list' })).toHaveAttribute('aria-selected', 'true');
+    // The page only turns once a bookmark is picked, never on the first render.
+    expect(screen.getByRole('tabpanel', { name: 'Market list' })).not.toHaveAttribute('data-turning');
+    await user.click(screen.getByRole('tab', { name: 'Market analysis' }));
+    expect(screen.getByRole('tabpanel', { name: 'Market analysis' })).toHaveAttribute('data-turning', 'true');
+    expect(screen.queryByRole('article', { name: 'Recipe 1' })).toBeNull();
+    unmount();
+    await renderApp();
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
+  });
+
+  it('sends one craft from the market analysis to the market list with a chime, staying on the analysis', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse({ ...AUCTION, prices: { ...AUCTION.prices, '2841': 900 } }));
+    const { user, list } = await renderApp();
+    await user.click(screen.getByRole('tab', { name: 'Market analysis' }));
+    await user.click(screen.getByRole('button', { name: 'Add Smelt Bronze to the market list' }));
+    expect(play).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
+    expect(within(list()).getByText('Copper Bar')).toBeInTheDocument();
+    // Market prices alone complete the recipe, so the fully-priced chime doesn't play again.
+    await waitForChime();
+    expect(play).toHaveBeenCalledTimes(1);
+    await user.click(screen.getByRole('tab', { name: 'Market list' }));
+    expect(articleNames()).toEqual(['Recipe 1']);
+    expect(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' })).toHaveValue('Smelt Bronze');
+    expect(within(recipeArticle(1)).getByLabelText('Amount wanted')).toHaveValue(2);
+  });
+
+  it('chimes once for a ranked recipe whose reagent has a typed price', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse({ ...AUCTION, prices: { ...AUCTION.prices, '2841': 900 } }));
+    const { user } = await renderApp();
+    await pickRecipe(user, 1, 'smelt', /Smelt Bronze/);
+    await user.type(screen.getByLabelText('Copper Bar price copper'), '90');
+    // The auction already priced the block, so the typed price changes it quietly.
+    await waitForChime();
+    expect(play).not.toHaveBeenCalled();
+    await user.click(screen.getByRole('tab', { name: 'Market analysis' }));
+    await user.click(screen.getByRole('button', { name: 'Add Smelt Bronze to the market list' }));
+    expect(play).toHaveBeenCalledTimes(1);
+    // The new block uses the typed Copper Bar price, yet the click's chime is its only one.
+    await waitForChime();
+    expect(play).toHaveBeenCalledTimes(1);
+  });
+
+  it('narrows the recipe search to the professions picked', async () => {
+    const { user } = await renderApp();
+    await user.click(screen.getByText('All professions'));
+    await user.click(screen.getByRole('checkbox', { name: 'Mining' }));
+    await user.type(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' }), 'bronze');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Smelt BronzeMining']);
+  });
+
+  const MARKET: AuctionPriceList = {
+    ...AUCTION,
+    prices: { '2840': 113, '3576': 250, '2841': 900, '10421': 2000, '4371': 5000 },
+    quantities: { '2841': 10, '10421': 10, '4371': 10 },
+  };
+
+  const openAnalysis = (user: User) => user.click(screen.getByRole('tab', { name: 'Market analysis' }));
+  const cards = () =>
+    screen.queryAllByRole('button', { name: /to the market list$/ }).map((card) => card.getAttribute('aria-label'));
+
+  it('ranks recipes on the Market analysis tab and keeps the shopping list beside it', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(MARKET));
+    const { user, list } = await renderApp();
+    await openAnalysis(user);
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByRole('heading', { name: 'Market analysis' })).toBeInTheDocument();
+    expect(cards()).toEqual([
+      'Add Smelt Bronze to the market list',
+      'Add Rough Copper Vest to the market list',
+      'Add Bronze Tube to the market list',
+    ]);
+    expect(within(list()).getByText('Nothing to buy yet.')).toBeInTheDocument();
+  });
+
+  it('filters by profession on both tabs and by minimum profit, and remembers them', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(MARKET));
+    const first = await renderApp();
+    await openAnalysis(first.user);
+    await first.user.click(screen.getByText('Professions'));
+    await first.user.click(screen.getByRole('checkbox', { name: 'Mining' }));
+    await first.user.click(screen.getByRole('checkbox', { name: 'Engineering' }));
+    expect(cards()).toEqual(['Add Smelt Bronze to the market list', 'Add Bronze Tube to the market list']);
+    const silver = screen.getByLabelText('Minimum profit silver');
+    await first.user.type(silver, '20');
+    await first.user.tab();
+    expect(cards()).toEqual(['Add Bronze Tube to the market list']);
+    first.unmount();
+
+    const second = await renderApp();
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveAttribute('aria-selected', 'true');
+    expect(screen.getByLabelText('Minimum profit silver')).toHaveValue(20);
+    expect(cards()).toEqual(['Add Bronze Tube to the market list']);
+    await second.user.click(screen.getByRole('tab', { name: 'Market list' }));
+    const search = within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' });
+    await second.user.type(search, 'bronze');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual([
+      expect.stringContaining('Bronze Tube'),
+      expect.stringContaining('Smelt Bronze'),
+    ]);
+  });
+
+  it('says the ranking needs auction prices when they are unavailable', async () => {
+    const { user } = await renderApp();
+    await openAnalysis(user);
+    expect(screen.getByText("Auction prices are unavailable, so recipes can't be ranked right now.")).toBeInTheDocument();
+  });
+
+  it('ignores saved professions the recipe book no longer has', async () => {
+    const saved: Preferences = { tab: 'list', professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50) };
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify(saved));
+    const { user } = await renderApp();
+    // Three saved names would read "3 professions"; only Mining is still in the book.
+    expect(within(screen.getByRole('group', { name: 'Professions' })).getByText('Mining', { selector: 'summary span' })).toBeInTheDocument();
+    await user.type(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' }), 'bronze');
+    expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Smelt BronzeMining']);
+    // The next change saves only names the book still has.
+    await user.click(screen.getByText('Mining', { selector: 'summary span' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Engineering' }));
+    const stored: unknown = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? 'null');
+    expect(stored).toMatchObject({ professions: ['Engineering', 'Mining'] });
   });
 });
