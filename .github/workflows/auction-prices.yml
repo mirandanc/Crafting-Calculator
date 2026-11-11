@@ -1,13 +1,18 @@
 name: Auction prices
 
-# Twice a day at 08:00 and 19:00 GMT-3 (cron runs in UTC: 11:00 and 22:00), plus a "Run workflow" button.
+# Six times a day: 06:00, 07:30, 12:45, 18:00, 19:30 and 00:45 GMT-3 (cron runs in UTC: 09:00, 10:30, 15:45, 21:00,
+# 22:30 and 03:45), plus a "Run workflow" button. The 1h30 pairs let LONG listings count as sales; every other gap
+# is 5h15, so VERY_LONG listings always count (see scripts/fetch-auction-prices.ts).
 # GitHub only runs schedules on the default branch, and pauses them after 60 days without commits; the manual
 # button turns them back on.
 on:
   schedule:
-    - cron: '0 11,22 * * *'
+    - cron: '0 9,21 * * *'
+    - cron: '30 10,22 * * *'
+    - cron: '45 3,15 * * *'
   workflow_dispatch:
 
+# One run at a time, so two runs never race on the sales history.
 concurrency: auction-prices
 
 permissions:
@@ -16,7 +21,7 @@ permissions:
 jobs:
   update:
     runs-on: ubuntu-latest
-    timeout-minutes: 10
+    timeout-minutes: 15
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -24,13 +29,41 @@ jobs:
           node-version-file: .node-version
           cache: npm
       - run: npm ci
-      - name: Fetch house 110 and work out prices
+      # A missing key (the first run) is fine: the script starts a new history. Any other failure leaves the stored
+      # history alone (its upload is skipped below) and the prices still update, without sales.
+      - name: Download the sales history from Cloudflare KV
+        id: history
+        run: |
+          if ! keys=$(npx wrangler kv key list --binding AUCTION_PRICES --remote --prefix auction-history); then
+            echo "::warning::Could not list the KV keys; the prices update without the sales history."
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+          elif ! grep -q '"auction-history"' <<< "$keys"; then
+            echo "No sales history stored yet; the script starts one."
+            echo "status=missing" >> "$GITHUB_OUTPUT"
+          elif npx wrangler kv key get auction-history --binding AUCTION_PRICES --remote > auction-history.json; then
+            echo "status=found" >> "$GITHUB_OUTPUT"
+          else
+            rm -f auction-history.json
+            echo "::warning::Could not download the sales history; the prices update without it."
+            echo "status=failed" >> "$GITHUB_OUTPUT"
+          fi
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      - name: Fetch house 110, work out prices and sales
         run: node scripts/fetch-auction-prices.ts
         env:
           BLIZZARD_CLIENT_ID: ${{ secrets.BLIZZARD_CLIENT_ID }}
           BLIZZARD_CLIENT_SECRET: ${{ secrets.BLIZZARD_CLIENT_SECRET }}
-      - name: Store them in Cloudflare KV
+      - name: Store the prices in Cloudflare KV
         run: npx wrangler kv key put auction-prices --path auction-prices.json --binding AUCTION_PRICES --remote
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+      # After a failed download the script's history has no past in it, so it must not replace the stored one.
+      - name: Store the sales history in Cloudflare KV
+        if: steps.history.outputs.status != 'failed'
+        run: npx wrangler kv key put auction-history --path auction-history.json --binding AUCTION_PRICES --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
