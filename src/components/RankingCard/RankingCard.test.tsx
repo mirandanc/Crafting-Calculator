@@ -15,6 +15,8 @@ const SMELT: RankedRecipe = {
   cost: 313,
   profit: 1397,
   margin: 1397 / 313,
+  salesPerDay: null,
+  profitPerDay: null,
 };
 
 describe('RankingCard', () => {

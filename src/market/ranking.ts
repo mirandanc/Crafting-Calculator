@@ -1,10 +1,16 @@
+import type { ItemSales } from '@/prices/auctionPrices';
 import { marketPriceOf, type ItemPrices, type PriceSource } from '@/prices/marketPrices';
 import type { CatalogItem, CatalogRecipe, RecipeCatalog } from '@/recipes/catalog';
+
+/** Profit per day (profit per craft × estimated sales a day), or margin. */
+export type RankingSort = 'profitPerDay' | 'margin';
 
 export type RankingMarket = {
   auction: ItemPrices;
   /** Quantity for sale per item id; null for an auction list saved before quantities existed. */
   quantities: Record<string, number> | null;
+  /** Estimated sales per item id; null until the auction job has compared two snapshots. */
+  sales: Record<string, ItemSales> | null;
   vendor: ItemPrices;
 };
 
@@ -35,12 +41,26 @@ export type RankedRecipe = {
   profit: number;
   /** profit ÷ cost: 0.5 means 50%. */
   margin: number;
+  /** Estimated sales of the result per day; null while sales are unknown. */
+  salesPerDay: number | null;
+  /** profit × salesPerDay, in whole copper; null while sales are unknown. */
+  profitPerDay: number | null;
 };
 
 /** The auction house keeps 5% of every sale. */
 const AH_CUT = 0.05;
 /** Fewer for sale than this and the price is one seller's guess, not a market. */
 const MIN_LISTED = 5;
+/** Sells fewer a day than this and the listing price is a hope, not a market. */
+const MIN_SALES_PER_DAY = 5;
+/** Above 1500% the "price" is a listing far above the item's worth that nobody buys. */
+const MAX_MARGIN = 15;
+
+type CompareRanked = (a: RankedRecipe, b: RankedRecipe) => number;
+
+const byName: CompareRanked = (a, b) => a.recipe.name.localeCompare(b.recipe.name, 'en');
+const byMargin: CompareRanked = (a, b) => b.margin - a.margin || b.profit - a.profit || byName(a, b);
+const byProfitPerDay: CompareRanked = (a, b) => (b.profitPerDay ?? 0) - (a.profitPerDay ?? 0) || b.margin - a.margin || byName(a, b);
 
 function rankedReagents(recipe: CatalogRecipe, items: Record<string, CatalogItem>, market: RankingMarket): RankedReagent[] | null {
   const reagents: RankedReagent[] = [];
@@ -63,29 +83,56 @@ function rankedReagents(recipe: CatalogRecipe, items: Record<string, CatalogItem
 function rankOne(recipe: CatalogRecipe, catalog: RecipeCatalog, market: RankingMarket): RankedRecipe | null {
   if (recipe.makes === null || recipe.cooldown === true || recipe.reagents.length === 0) return null;
   const key = String(recipe.makes.itemId);
-  const sellUnit: number | undefined = market.auction[key];
-  if (sellUnit === undefined) return null;
+  const auctionUnit: number | undefined = market.auction[key];
+  if (auctionUnit === undefined) return null;
   if (market.quantities !== null && (market.quantities[key] ?? 0) < MIN_LISTED) return null;
+  let sellUnit = auctionUnit;
+  let salesPerDay: number | null = null;
+  if (market.sales !== null) {
+    const sales: ItemSales | undefined = market.sales[key];
+    if (sales === undefined || sales.perDay < MIN_SALES_PER_DAY) return null;
+    // Today's listings may sit above what buyers actually paid.
+    sellUnit = Math.min(auctionUnit, sales.price);
+    salesPerDay = sales.perDay;
+  }
   const reagents = rankedReagents(recipe, catalog.items, market);
   if (reagents === null) return null;
   const cost = reagents.reduce((sum, reagent) => sum + reagent.unitPrice * reagent.count, 0);
   if (cost <= 0) return null;
   const revenue = Math.floor(sellUnit * recipe.makes.count * (1 - AH_CUT));
   const profit = revenue - cost;
-  return { recipe, reagents, revenue, cost, profit, margin: profit / cost };
+  const margin = profit / cost;
+  if (margin > MAX_MARGIN) return null;
+  const profitPerDay = salesPerDay === null ? null : Math.floor(profit * salesPerDay);
+  return { recipe, reagents, revenue, cost, profit, margin, salesPerDay, profitPerDay };
 }
 
-/** Every recipe worth listing, best margin first (then profit, then name). */
-export function rankRecipes(catalog: RecipeCatalog, market: RankingMarket, filter: RankingFilter): RankedRecipe[] {
+/**
+ * Every recipe worth listing. By profit per day (then margin, then name) once sales are known; by margin
+ * (then profit, then name) when asked, or while sales are still unknown.
+ */
+export function rankRecipes(catalog: RecipeCatalog, market: RankingMarket, filter: RankingFilter, sort: RankingSort): RankedRecipe[] {
   const ranked: RankedRecipe[] = [];
   for (const recipe of catalog.recipes) {
     if (filter.professions.length > 0 && !filter.professions.includes(recipe.profession)) continue;
     const entry = rankOne(recipe, catalog, market);
     if (entry !== null && entry.profit >= filter.minProfit) ranked.push(entry);
   }
-  return ranked.sort((a, b) => b.margin - a.margin || b.profit - a.profit || a.recipe.name.localeCompare(b.recipe.name, 'en'));
+  return ranked.sort(sort === 'margin' || market.sales === null ? byMargin : byProfitPerDay);
 }
 
 export function formatMargin(margin: number): string {
   return `${Math.round(margin * 100).toLocaleString('en-US')}%`;
+}
+
+/** "~14 sold/day": always a whole number, rounded down. */
+export function formatSoldPerDay(perDay: number): string {
+  return `~${Math.floor(perDay).toLocaleString('en-US')} sold/day`;
+}
+
+/** How much auction history the sales come from, in whole days rounded down; "< 1 day" before the first full day. */
+export function formatSalesCoverage(salesDays: number): string {
+  const days = Math.floor(salesDays);
+  if (days < 1) return 'Sales from the last < 1 day';
+  return `Sales from the last ${days} ${days === 1 ? 'day' : 'days'}`;
 }

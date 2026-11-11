@@ -61,8 +61,14 @@ export function MarketAnalysis({
         ? null
         : rankRecipes(
             catalog,
-            { auction: auction.list.prices, quantities: auction.list.quantities ?? null, vendor: catalog.vendorPrices },
+            {
+              auction: auction.list.prices,
+              quantities: auction.list.quantities ?? null,
+              sales: auction.list.sales ?? null,
+              vendor: catalog.vendorPrices,
+            },
             { professions, minProfit: minCopper },
+            'profitPerDay',
           ),
     [catalog, auction.list, professions, minCopper],
   );
