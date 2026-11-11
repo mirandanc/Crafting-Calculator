@@ -4,6 +4,7 @@ import {
   buildPriceList,
   checkPriceList,
   createBlizzardClient,
+  detectSales,
   marketValue,
   marketValues,
   totalQuantities,
@@ -232,5 +233,43 @@ describe('createBlizzardClient', () => {
     expect(message).toContain('/x answered 503');
     expect(message).not.toContain('the-secret');
     expect(message).not.toContain('secret-token');
+  });
+});
+
+const MINUTES = 60_000;
+
+describe('detectSales', () => {
+  it('counts vanished and shrunk listings whose band outlasts the gap, at their unit price', () => {
+    const previous = [
+      listing(10, 100, 5, 1, 'LONG'), // gone; LONG (2 h) outlasts 1h30 → 5 sold for 500
+      listing(10, 120, 20, 2, 'VERY_LONG'), // shrank to 12 → 8 sold for 960
+      listing(20, 50, 3, 3, 'MEDIUM'), // gone, but MEDIUM (30 min) may simply have expired
+      listing(20, 70, 2, 4, 'VERY_LONG'), // unchanged
+      listing(40, 550.5, 2, 6, 'LONG'), // a house auction bought whole: 1101
+    ];
+    const current = [
+      listing(10, 120, 12, 2, 'VERY_LONG'),
+      listing(20, 70, 2, 4, 'VERY_LONG'),
+      listing(30, 10, 9, 5, 'SHORT'), // new: nothing sold
+    ];
+    expect(detectSales(previous, current, 90 * MINUTES)).toEqual({ '10': [13, 1460], '40': [2, 1101] });
+  });
+
+  it('needs the band minimum to exceed the gap, not just reach it', () => {
+    expect(detectSales([listing(10, 100, 5, 1, 'LONG')], [], 120 * MINUTES)).toEqual({});
+  });
+
+  it('treats an id now used by another item as gone', () => {
+    expect(detectSales([listing(10, 100, 5, 1, 'LONG')], [listing(11, 100, 5, 1, 'LONG')], 90 * MINUTES)).toEqual({ '10': [5, 500] });
+  });
+
+  it('ignores a listing that grew', () => {
+    expect(detectSales([listing(10, 100, 5, 1, 'LONG')], [listing(10, 100, 7, 1, 'LONG')], 90 * MINUTES)).toEqual({});
+  });
+
+  it('rounds the copper per item', () => {
+    // 2 × 33.4 + 1 × 33.4 = 100.2 → 100.
+    const previous = [listing(10, 33.4, 2, 1, 'LONG'), listing(10, 33.4, 1, 2, 'LONG')];
+    expect(detectSales(previous, [], 90 * MINUTES)).toEqual({ '10': [3, 100] });
   });
 });

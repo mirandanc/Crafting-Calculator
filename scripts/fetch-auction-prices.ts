@@ -169,6 +169,34 @@ export function marketValues(listings: Listing[]): Record<string, number> {
   return prices;
 }
 
+/** Units sold of one item and the copper they brought. */
+export type SoldItem = [quantity: number, copper: number];
+
+/**
+ * Units sold per item id between two snapshots `gapMs` apart. A listing counts only when its band's
+ * minimum exceeds the gap, so it can't have expired: then a vanished listing sold its whole quantity
+ * and a shrunk commodity stack sold the difference, at its unit price. Cancels count too; the API
+ * can't tell them apart.
+ */
+export function detectSales(previous: Listing[], current: Listing[], gapMs: number): Record<string, SoldItem> {
+  const currentById = new Map<number, Listing>();
+  for (const listing of current) currentById.set(listing.id, listing);
+  const totals = new Map<string, SoldItem>();
+  for (const before of previous) {
+    if (bandMinimumMs(before.band) <= gapMs) continue;
+    const after = currentById.get(before.id);
+    const left = after === undefined || after.itemId !== before.itemId ? 0 : after.quantity;
+    const sold = before.quantity - left;
+    if (sold <= 0) continue;
+    const key = String(before.itemId);
+    const [quantity, copper] = totals.get(key) ?? [0, 0];
+    totals.set(key, [quantity + sold, copper + sold * before.unitPrice]);
+  }
+  const sales: Record<string, SoldItem> = {};
+  for (const [itemId, [quantity, copper]] of totals) sales[itemId] = [quantity, Math.round(copper)];
+  return sales;
+}
+
 export function createBlizzardClient(clientId: string, clientSecret: string, deps: BlizzardClientDeps): BlizzardClient {
   let token: Promise<string> | null = null;
 
