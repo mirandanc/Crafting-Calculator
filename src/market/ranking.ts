@@ -137,9 +137,16 @@ export function formatMargin(margin: number): string {
   return `${Math.round(margin * 100).toLocaleString('en-US')}%`;
 }
 
-/** "~14 sold/day": always a whole number, rounded down. */
+/**
+ * "14 sold in a day", "1.2k sold in a day", "2.7m sold in a day": always rounded down, short from a thousand up
+ * with one decimal (dropped when it is 0), so no thousands separator can be read as a decimal point.
+ */
 export function formatSoldPerDay(perDay: number): string {
-  return `~${Math.floor(perDay).toLocaleString('en-US')} sold/day`;
+  const sold = Math.floor(perDay);
+  let shown = String(sold);
+  if (sold >= 1_000_000) shown = `${Math.floor(sold / 100_000) / 10}m`;
+  else if (sold >= 1_000) shown = `${Math.floor(sold / 100) / 10}k`;
+  return `${shown} sold in a day`;
 }
 
 /** How much auction history the sales come from, in whole days rounded down; "< 1 day" before the first full day. */

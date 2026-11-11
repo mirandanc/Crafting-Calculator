@@ -58,7 +58,8 @@ the recipes most worth crafting right now.
 - Left out: recipes with a cooldown, results where fewer than 5 are listed for sale, results that sell fewer than
   5 a day or have fewer than 5 sales counted so far, and anything above a 1500% margin (a listing far above the item's worth that nobody buys).
 - "Sort by" picks Profit per day (profit per craft × sales per day, the default) or Margin. Each card shows
-  "~N sold/day · ≈ profit/day", and a note above the cards says how many days of sales the ranking uses.
+  "N sold in a day" after the profession (rounded down, as 1.2k or 2.7m from a thousand up) and "≈ profit/day" under
+  its prices, and a note above the cards says how many days of sales the ranking uses.
   Until the job has compared two runs, the ranking uses margin only and says so.
 - The minimum profit per craft starts at 50c. The open tab, the minimum profit, the sort and the chosen professions
   are saved in the browser. The professions also narrow the recipe search on the Market list.

@@ -31,12 +31,19 @@ export function RankingCard({ ranked, onAdd }: RankingCardProps) {
           <ItemIcon src={recipe.icon} size="row" />
           <span className={styles.title}>
             <span className={styles.name}>{recipe.name}</span>
-            <span className={styles.profession}>{recipe.profession}</span>
+            <span className={styles.profession}>
+              {recipe.profession}
+              {salesPerDay !== null && <span className={styles.sold}> · {formatSoldPerDay(salesPerDay)}</span>}
+            </span>
           </span>
           <span className={styles.margin}>{formatMargin(margin)}</span>
         </span>
         <span id={detailsId} className={styles.details}>
-          <span className="sr-only">{`${recipe.profession}, ${formatMargin(margin)} margin.`}</span>{' '}
+          <span className="sr-only">
+            {salesPerDay === null
+              ? `${recipe.profession}, ${formatMargin(margin)} margin.`
+              : `${recipe.profession}, ${formatSoldPerDay(salesPerDay)}, ${formatMargin(margin)} margin.`}
+          </span>{' '}
           <span className={styles.money}>
             <span className={styles.figure}>
               <span className={styles.label}>Profit</span>{' '}
@@ -51,10 +58,10 @@ export function RankingCard({ ranked, onAdd }: RankingCardProps) {
               <MoneyText copper={cost} />
             </span>
           </span>{' '}
-          {salesPerDay !== null && profitPerDay !== null && (
+          {profitPerDay !== null && (
             <>
               <span className={styles.sales}>
-                {formatSoldPerDay(salesPerDay)} · ≈ <MoneyText copper={profitPerDay} />/day
+                ≈ <MoneyText copper={profitPerDay} />/day
               </span>{' '}
             </>
           )}

@@ -54,6 +54,10 @@
   color: var(--color-ink-soft);
 }
 
+.sold {
+  white-space: nowrap;
+}
+
 .margin {
   font-family: var(--font-numeral);
   font-weight: 700;

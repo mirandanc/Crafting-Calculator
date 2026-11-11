@@ -717,7 +717,7 @@ describe('App', () => {
       'Add Smelt Bronze to the market list',
     ]);
     expect(screen.getByRole('button', { name: 'Add Rough Copper Vest to the market list' })).toHaveAccessibleDescription(
-      /~20 sold\/day · ≈ 1g 94s 60c\/day/,
+      /^Blacksmithing, 20 sold in a day, .* ≈ 1g 94s 60c\/day /,
     );
   });
 
