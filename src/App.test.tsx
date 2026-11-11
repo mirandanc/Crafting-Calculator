@@ -685,7 +685,7 @@ describe('App', () => {
   });
 
   it('ignores saved professions the recipe book no longer has', async () => {
-    const saved: Preferences = { tab: 'list', professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50) };
+    const saved: Preferences = { tab: 'list', professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50), sort: 'profitPerDay' };
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify(saved));
     const { user } = await renderApp();
     // Three saved names would read "3 professions"; only Mining is still in the book.

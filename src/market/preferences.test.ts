@@ -5,19 +5,42 @@ describe('preferences', () => {
   beforeEach(() => localStorage.clear());
   afterEach(() => vi.restoreAllMocks());
 
-  it('starts on the market list, all professions, 50c minimum', () => {
-    expect(loadPreferences()).toEqual({ tab: 'list', professions: [], minProfit: { gold: 0, silver: 0, copper: 50 } });
+  it('starts on the market list, all professions, 50c minimum, by profit per day', () => {
+    expect(loadPreferences()).toEqual({
+      tab: 'list',
+      professions: [],
+      minProfit: { gold: 0, silver: 0, copper: 50 },
+      sort: 'profitPerDay',
+    });
   });
 
   it('round-trips what was saved', () => {
-    const saved: Preferences = { tab: 'analysis', professions: ['Alchemy', 'Mining'], minProfit: { gold: 1, silver: 2, copper: 3 } };
+    const saved: Preferences = {
+      tab: 'analysis',
+      professions: ['Alchemy', 'Mining'],
+      minProfit: { gold: 1, silver: 2, copper: 3 },
+      sort: 'margin',
+    };
     savePreferences(saved);
     expect(loadPreferences()).toEqual(saved);
   });
 
   it('repairs bad values field by field', () => {
-    localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ tab: 'other', professions: ['Mining', 4, 'Mining'], minProfit: { gold: -1, silver: 150 } }));
-    expect(loadPreferences()).toEqual({ tab: 'list', professions: ['Mining'], minProfit: { gold: 1, silver: 50, copper: 0 } });
+    localStorage.setItem(
+      PREFERENCES_KEY,
+      JSON.stringify({ tab: 'other', professions: ['Mining', 4, 'Mining'], minProfit: { gold: -1, silver: 150 }, sort: 'price' }),
+    );
+    expect(loadPreferences()).toEqual({
+      tab: 'list',
+      professions: ['Mining'],
+      minProfit: { gold: 1, silver: 50, copper: 0 },
+      sort: 'profitPerDay',
+    });
+  });
+
+  it('reads preferences saved before the sort existed as sorting by profit per day', () => {
+    localStorage.setItem(PREFERENCES_KEY, JSON.stringify({ tab: 'analysis', professions: [], minProfit: { gold: 0, silver: 0, copper: 50 } }));
+    expect(loadPreferences().sort).toBe('profitPerDay');
   });
 
   it('falls back to the defaults on corrupted JSON or blocked storage', () => {
