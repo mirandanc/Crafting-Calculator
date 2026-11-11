@@ -42,6 +42,30 @@ describe('parseAuctionPriceList', () => {
   it('leaves quantities out for a list saved before they existed', () => {
     expect(parseAuctionPriceList(LIST)).not.toHaveProperty('quantities');
   });
+
+  it('keeps the estimated sales with the days they cover, dropping bad entries', () => {
+    const parsed = parseAuctionPriceList({
+      ...LIST,
+      sales: {
+        '2840': { perDay: 6.5, price: 120 },
+        '3576': { perDay: 0, price: 10 },
+        '9': { perDay: 2, price: 1.5 },
+        '8': { perDay: 2, price: GOLD_CAP_COPPER + 1 },
+        '7': 'y',
+        x: { perDay: 1, price: 1 },
+      },
+      salesDays: 3.4,
+    });
+    expect(parsed?.sales).toEqual({ '2840': { perDay: 6.5, price: 120 } });
+    expect(parsed?.salesDays).toBe(3.4);
+  });
+
+  it('leaves sales out for a list without them, or without valid days covered', () => {
+    expect(parseAuctionPriceList(LIST)).not.toHaveProperty('sales');
+    const noDays = parseAuctionPriceList({ ...LIST, sales: { '2840': { perDay: 6, price: 120 } }, salesDays: 0 });
+    expect(noDays).not.toHaveProperty('sales');
+    expect(noDays).not.toHaveProperty('salesDays');
+  });
 });
 
 describe('auctionStatusOf', () => {

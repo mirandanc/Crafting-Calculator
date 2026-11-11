@@ -25,7 +25,8 @@
     "binding": "ASSETS",
     "run_worker_first": ["/api/*"]
   },
-  // Filled twice a day by .github/workflows/auction-prices.yml; the Worker serves it at /api/auction-prices.
+  // Filled six times a day by .github/workflows/auction-prices.yml: `auction-prices` (served at /api/auction-prices)
+  // and `auction-history` (the job's own snapshot and sales history, never served).
   "kv_namespaces": [
     { "binding": "AUCTION_PRICES", "id": "630acd3b18394310824cec768eaa53f2" }
   ]

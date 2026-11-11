@@ -19,14 +19,29 @@ WoW Forever crafting calculator: pick recipes and items, price them, and get a s
 ## Auction prices
 
 Prices fill in from the WoW Forever auction house through Blizzard's Battle.net API: US, Alliance house 110.
-A GitHub Actions workflow (`.github/workflows/auction-prices.yml`) runs `scripts/fetch-auction-prices.ts` at
-08:00 and 19:00 GMT-3 (11:00 and 22:00 UTC). The script works out a market value per item (the average of the cheapest
-listings covering 15% of what's for sale) and stores it in the Cloudflare KV namespace bound as
+A GitHub Actions workflow (`.github/workflows/auction-prices.yml`) runs `scripts/fetch-auction-prices.ts` six times
+a day: 06:00, 07:30, 12:45, 18:00, 19:30 and 00:45 GMT-3. The script works out a market value per item (the average of
+the cheapest listings covering 15% of what's for sale) and stores it in the Cloudflare KV namespace bound as
 `AUCTION_PRICES`. The Worker serves it at `/api/auction-prices`. A run that gets a broken or tiny answer stops
 without saving, so the page keeps the last good prices and shows their age at the bottom.
 
+The API only shows what is listed, never what sold, so the script estimates sales by comparing each run with the
+previous one:
+
+- A listing that vanishes, or a commodity stack that shrinks, before its time left could have run out counts as sold
+  at its listed price. Cancels count too.
+- Gaps are measured between the times Blizzard published its data (about hourly), not the run times. The other gaps
+  (about 5 h) count listings that had more than 8 hours left. A 1h30 pair (06:00 → 07:30, 18:00 → 19:30) measures
+  1 h or 2 h; at 1 h it also counts listings that had more than 2 hours left.
+- Sales from the last 7 days give each item's sales per day and average sale price. A missed run doesn't count as a
+  day without sales.
+- The previous snapshot and the sales are kept in the KV key `auction-history`, about 4 MB. The workflow downloads it
+  before the script and uploads it after. If it is missing or unreadable, a new history starts.
+
 - Locally: put `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET` in `.env`, then `npm run fetch:auction-prices`
-  (writes the git-ignored `auction-prices.json`) or `npm run auction:houses` (lists the Alliance houses).
+  (writes the git-ignored `auction-prices.json` and `auction-history.json`; a later run compares with it once
+  Blizzard has published new data, about hourly) or
+  `npm run auction:houses` (lists the Alliance houses).
 - GitHub secrets the workflow needs: `BLIZZARD_CLIENT_ID`, `BLIZZARD_CLIENT_SECRET`, `CLOUDFLARE_API_TOKEN`
   (Workers KV Storage: Edit only) and `CLOUDFLARE_ACCOUNT_ID`.
 - GitHub pauses scheduled workflows after 60 days without commits; run "Auction prices" by hand from the
@@ -39,9 +54,14 @@ the recipes most worth crafting right now.
 
 - The margin is the profit after the auction house's 5% cut, divided by the reagent cost.
 - Reagents use the cheaper of the auction and vendor price; a vendor price is tagged "Vendor".
-- Recipes with a cooldown are left out, and so are results where fewer than 5 are listed for sale.
-- The minimum profit per craft starts at 50c. The open tab, the minimum profit and the chosen professions are saved
-  in the browser. The professions also narrow the recipe search on the Market list.
+- Results are sold at the lower of today's auction price and their average sale price.
+- Left out: recipes with a cooldown, results where fewer than 5 are listed for sale, results that sell fewer than
+  5 a day or have fewer than 5 sales counted so far, and anything above a 1500% margin (a listing far above the item's worth that nobody buys).
+- "Sort by" picks Profit per day (profit per craft × sales per day, the default) or Margin. Each card shows
+  "~N sold/day · ≈ profit/day", and a note above the cards says how many days of sales the ranking uses.
+  Until the job has compared two runs, the ranking uses margin only and says so.
+- The minimum profit per craft starts at 50c. The open tab, the minimum profit, the sort and the chosen professions
+  are saved in the browser. The professions also narrow the recipe search on the Market list.
 
 ## Deployment
 

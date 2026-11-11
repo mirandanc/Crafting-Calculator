@@ -13,24 +13,35 @@ const LIST: AuctionPriceList = {
   quantities: { '2841': 10, '10421': 10, '4371': 10 },
 };
 
+/** Same prices as LIST, with sales: by profit per day Vest 19460, Tube 14750, Smelt 8082 (see ranking.test.ts). */
+const SOLD: AuctionPriceList = {
+  ...LIST,
+  sales: { '2841': { perDay: 6, price: 1000 }, '10421': { perDay: 20, price: 1500 }, '4371': { perDay: 5, price: 5000 } },
+  salesDays: 3.4,
+};
+
 /** 30 profitable copies of Rough Copper Vest, so the list needs "Show more". */
 const MANY: RecipeCatalog = {
   ...TEST_CATALOG,
   recipes: Array.from({ length: 30 }, (_, index): CatalogRecipe => ({ ...TEST_CATALOG.recipes[1], id: index + 1, name: `Vest ${String(index + 1).padStart(2, '0')}` })),
 };
 
+const analysisProps = (overrides: Partial<MarketAnalysisProps> = {}): MarketAnalysisProps => ({
+  catalog: TEST_CATALOG,
+  catalogFailed: false,
+  auction: { list: LIST, failed: false },
+  professions: [],
+  minProfit: { gold: 0, silver: 0, copper: 50 },
+  onMinProfitChange: vi.fn(),
+  onMinProfitBlur: vi.fn(),
+  sort: 'profitPerDay',
+  onSortChange: vi.fn(),
+  onAdd: vi.fn(),
+  ...overrides,
+});
+
 const renderAnalysis = (overrides: Partial<MarketAnalysisProps> = {}) => {
-  const props: MarketAnalysisProps = {
-    catalog: TEST_CATALOG,
-    catalogFailed: false,
-    auction: { list: LIST, failed: false },
-    professions: [],
-    minProfit: { gold: 0, silver: 0, copper: 50 },
-    onMinProfitChange: vi.fn(),
-    onMinProfitBlur: vi.fn(),
-    onAdd: vi.fn(),
-    ...overrides,
-  };
+  const props = analysisProps(overrides);
   render(<MarketAnalysis {...props} />);
   return props;
 };
@@ -95,5 +106,62 @@ describe('MarketAnalysis', () => {
   it('waits while the auction prices load', () => {
     renderAnalysis({ auction: { list: null, failed: false } });
     expect(screen.getByText('Weighing the market…')).toBeInTheDocument();
+  });
+
+  it('ranks by profit per day once sales are known, and says how many days they cover', () => {
+    renderAnalysis({ auction: { list: SOLD, failed: false } });
+    expect(cardNames()).toEqual([
+      'Add Rough Copper Vest to the market list',
+      'Add Bronze Tube to the market list',
+      'Add Smelt Bronze to the market list',
+    ]);
+    expect(screen.getByText('Sales from the last 3 days')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Profit per day' })).toBeChecked();
+  });
+
+  it('ranks by margin when that sort is picked', () => {
+    renderAnalysis({ auction: { list: SOLD, failed: false }, sort: 'margin' });
+    expect(cardNames()).toEqual([
+      'Add Smelt Bronze to the market list',
+      'Add Rough Copper Vest to the market list',
+      'Add Bronze Tube to the market list',
+    ]);
+    expect(screen.getByRole('radio', { name: 'Margin' })).toBeChecked();
+  });
+
+  it('passes the sort choice up from a radio group', async () => {
+    const props = renderAnalysis();
+    expect(screen.getByRole('radiogroup', { name: 'Sort by' })).toBeInTheDocument();
+    await userEvent.click(screen.getByRole('radio', { name: 'Margin' }));
+    expect(props.onSortChange).toHaveBeenCalledWith('margin');
+  });
+
+  it('says sales are still being counted while the list has none', () => {
+    renderAnalysis();
+    expect(screen.getByText('Sales are still being counted; ranking by margin only.')).toBeInTheDocument();
+  });
+
+  it('says "< 1 day" before the first full day, even when nothing qualifies', () => {
+    renderAnalysis({ auction: { list: { ...SOLD, salesDays: 0.25 }, failed: false }, minProfit: { gold: 100, silver: 0, copper: 0 } });
+    expect(screen.getByText('Sales from the last < 1 day')).toBeInTheDocument();
+    expect(screen.getByText('No recipe makes at least 100g per craft right now.')).toBeInTheDocument();
+  });
+
+  it.each<[string, Partial<MarketAnalysisProps>]>([
+    ['while loading', { auction: { list: null, failed: false } }],
+    ['when the auction prices failed', { auction: { list: null, failed: true } }],
+    ['when the recipe book failed', { catalog: null, catalogFailed: true, auction: { list: SOLD, failed: false } }],
+  ])('shows no sales note %s', (_, overrides) => {
+    renderAnalysis(overrides);
+    expect(screen.queryByText(/^Sales /)).toBeNull();
+  });
+
+  it('starts over at the first 25 when the sort changes', async () => {
+    const props = analysisProps({ catalog: MANY });
+    const { rerender } = render(<MarketAnalysis {...props} />);
+    await userEvent.click(screen.getByRole('button', { name: 'Show more' }));
+    expect(cardNames()).toHaveLength(30);
+    rerender(<MarketAnalysis {...props} sort="margin" />);
+    expect(cardNames()).toHaveLength(25);
   });
 });

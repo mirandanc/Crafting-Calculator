@@ -685,7 +685,7 @@ describe('App', () => {
   });
 
   it('ignores saved professions the recipe book no longer has', async () => {
-    const saved: Preferences = { tab: 'list', professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50) };
+    const saved: Preferences = { tab: 'list', professions: ['Gone', 'Mining', 'Lost'], minProfit: coins(50), sort: 'profitPerDay' };
     localStorage.setItem(PREFERENCES_KEY, JSON.stringify(saved));
     const { user } = await renderApp();
     // Three saved names would read "3 professions"; only Mining is still in the book.
@@ -697,5 +697,63 @@ describe('App', () => {
     await user.click(screen.getByRole('checkbox', { name: 'Engineering' }));
     const stored: unknown = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? 'null');
     expect(stored).toMatchObject({ professions: ['Engineering', 'Mining'] });
+  });
+
+  /** MARKET with sales: by profit per day Vest 19460, Tube 14750, Smelt 8082 (see ranking.test.ts). */
+  const SOLD_MARKET: AuctionPriceList = {
+    ...MARKET,
+    sales: { '2841': { perDay: 6, price: 1000 }, '10421': { perDay: 20, price: 1500 }, '4371': { perDay: 5, price: 5000 } },
+    salesDays: 3.4,
+  };
+
+  it('ranks by estimated profit per day, with the sales on each card and the days they cover', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(SOLD_MARKET));
+    const { user } = await renderApp();
+    await openAnalysis(user);
+    expect(screen.getByText('Sales from the last 3 days')).toBeInTheDocument();
+    expect(cards()).toEqual([
+      'Add Rough Copper Vest to the market list',
+      'Add Bronze Tube to the market list',
+      'Add Smelt Bronze to the market list',
+    ]);
+    expect(screen.getByRole('button', { name: 'Add Rough Copper Vest to the market list' })).toHaveAccessibleDescription(
+      /~20 sold\/day · ≈ 1g 94s 60c\/day/,
+    );
+  });
+
+  it('switches the ranking to margin and remembers it', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(SOLD_MARKET));
+    const first = await renderApp();
+    await openAnalysis(first.user);
+    await first.user.click(screen.getByRole('radio', { name: 'Margin' }));
+    expect(cards()).toEqual([
+      'Add Smelt Bronze to the market list',
+      'Add Rough Copper Vest to the market list',
+      'Add Bronze Tube to the market list',
+    ]);
+    first.unmount();
+
+    await renderApp();
+    expect(screen.getByRole('radio', { name: 'Margin' })).toBeChecked();
+    expect(cards()[0]).toBe('Add Smelt Bronze to the market list');
+  });
+
+  it('hides recipes whose product sells fewer than 5 a day', async () => {
+    answerAuctionPrices.mockImplementation(async () =>
+      jsonResponse({ ...SOLD_MARKET, sales: { ...SOLD_MARKET.sales, '4371': { perDay: 4, price: 5000 } } }),
+    );
+    const { user } = await renderApp();
+    await openAnalysis(user);
+    expect(cards()).toEqual(['Add Rough Copper Vest to the market list', 'Add Smelt Bronze to the market list']);
+  });
+
+  it('ranks by margin only while sales are still being counted', async () => {
+    answerAuctionPrices.mockImplementation(async () => jsonResponse(MARKET));
+    const { user } = await renderApp();
+    await openAnalysis(user);
+    expect(screen.getByText('Sales are still being counted; ranking by margin only.')).toBeInTheDocument();
+    expect(screen.getByRole('radio', { name: 'Profit per day' })).toBeChecked();
+    expect(cards()[0]).toBe('Add Smelt Bronze to the market list');
+    expect(screen.queryByText(/sold\/day/)).toBeNull();
   });
 });

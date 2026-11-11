@@ -1,4 +1,5 @@
 import { normalizeCoins, type Coins } from '@/money/money';
+import type { RankingSort } from '@/market/ranking';
 
 export type BookTab = 'list' | 'analysis';
 
@@ -8,6 +9,8 @@ export type Preferences = {
   professions: string[];
   /** Minimum profit per craft in the market analysis. */
   minProfit: Coins;
+  /** How the market analysis orders its recipes. */
+  sort: RankingSort;
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -15,9 +18,15 @@ type UnknownRecord = Record<string, unknown>;
 /** Kept apart from the sheet, so erasing the page or a sheet format change never resets them. */
 export const PREFERENCES_KEY = 'crafting-calculator:preferences';
 
-export const DEFAULT_PREFERENCES: Preferences = { tab: 'list', professions: [], minProfit: { gold: 0, silver: 0, copper: 50 } };
+export const DEFAULT_PREFERENCES: Preferences = {
+  tab: 'list',
+  professions: [],
+  minProfit: { gold: 0, silver: 0, copper: 50 },
+  sort: 'profitPerDay',
+};
 
 const TABS: BookTab[] = ['list', 'analysis'];
+const SORTS: RankingSort[] = ['profitPerDay', 'margin'];
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -36,7 +45,8 @@ function parsePreferences(value: unknown): Preferences {
   const minProfit = isRecord(value.minProfit)
     ? normalizeCoins({ gold: coinOf(value.minProfit.gold), silver: coinOf(value.minProfit.silver), copper: coinOf(value.minProfit.copper) })
     : DEFAULT_PREFERENCES.minProfit;
-  return { tab, professions, minProfit };
+  const sort = SORTS.find((candidate) => candidate === value.sort) ?? DEFAULT_PREFERENCES.sort;
+  return { tab, professions, minProfit, sort };
 }
 
 export function loadPreferences(): Preferences {

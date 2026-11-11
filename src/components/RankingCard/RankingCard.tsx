@@ -2,7 +2,7 @@ import { Fragment, useId } from 'react';
 import { ItemIcon } from '@/components/ItemIcon/ItemIcon';
 import { MoneyText } from '@/components/MoneyText/MoneyText';
 import styles from '@/components/RankingCard/RankingCard.module.css';
-import { formatMargin, type RankedRecipe } from '@/market/ranking';
+import { formatMargin, formatSoldPerDay, type RankedRecipe } from '@/market/ranking';
 import type { CatalogRecipe } from '@/recipes/catalog';
 
 type RankingCardProps = {
@@ -16,7 +16,7 @@ type RankingCardProps = {
  * and the figures are read as the button's description.
  */
 export function RankingCard({ ranked, onAdd }: RankingCardProps) {
-  const { recipe, reagents, revenue, cost, profit, margin } = ranked;
+  const { recipe, reagents, revenue, cost, profit, margin, salesPerDay, profitPerDay } = ranked;
   const detailsId = useId();
   return (
     <li className={styles.item}>
@@ -51,6 +51,13 @@ export function RankingCard({ ranked, onAdd }: RankingCardProps) {
               <MoneyText copper={cost} />
             </span>
           </span>{' '}
+          {salesPerDay !== null && profitPerDay !== null && (
+            <>
+              <span className={styles.sales}>
+                {formatSoldPerDay(salesPerDay)} · ≈ <MoneyText copper={profitPerDay} />/day
+              </span>{' '}
+            </>
+          )}
           {/* The spaces between parts only matter to the description; flex and grid layouts drop them. */}
           <span role="list" className={styles.reagents}>
             {reagents.map((reagent) => (

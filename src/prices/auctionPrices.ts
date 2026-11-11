@@ -6,6 +6,14 @@ export type AuctionHouse = {
   name: string;
 };
 
+/** Estimated sales of one item, from comparing auction snapshots. */
+export type ItemSales = {
+  /** Units sold per 24 h of covered time. */
+  perDay: number;
+  /** Average copper per unit sold. */
+  price: number;
+};
+
 /** What the update job stores in KV and the Worker serves at /api/auction-prices. */
 export type AuctionPriceList = {
   /** ISO time of the download. */
@@ -15,6 +23,10 @@ export type AuctionPriceList = {
   prices: Record<string, number>;
   /** Total quantity for sale per item id; missing from lists saved before it existed. */
   quantities?: Record<string, number>;
+  /** Estimated sales per item id; missing until the job has compared two snapshots, and from older lists. */
+  sales?: Record<string, ItemSales>;
+  /** Days of snapshots the sales cover (at most 7); present exactly when `sales` is. */
+  salesDays?: number;
 };
 
 export type AuctionPricesState = {
@@ -53,6 +65,17 @@ function parseQuantities(value: UnknownRecord): Record<string, number> {
   return quantities;
 }
 
+function parseSales(value: UnknownRecord): Record<string, ItemSales> {
+  const sales: Record<string, ItemSales> = {};
+  for (const [itemId, entry] of Object.entries(value)) {
+    if (!/^\d+$/.test(itemId) || !isRecord(entry)) continue;
+    const { perDay, price } = entry;
+    const validPerDay = typeof perDay === 'number' && Number.isFinite(perDay) && perDay > 0;
+    if (validPerDay && isWholeNumber(price) && price > 0 && price <= GOLD_CAP_COPPER) sales[itemId] = { perDay, price };
+  }
+  return sales;
+}
+
 export function parseAuctionPriceList(value: unknown): AuctionPriceList | null {
   if (!isRecord(value) || typeof value.updatedAt !== 'string' || Number.isNaN(Date.parse(value.updatedAt))) return null;
   if (!isRecord(value.house) || !isRecord(value.prices)) return null;
@@ -64,6 +87,11 @@ export function parseAuctionPriceList(value: unknown): AuctionPriceList | null {
   }
   const list: AuctionPriceList = { updatedAt: value.updatedAt, house: { ruleset, id, name }, prices };
   if (isRecord(value.quantities)) list.quantities = parseQuantities(value.quantities);
+  const { sales, salesDays } = value;
+  if (isRecord(sales) && typeof salesDays === 'number' && Number.isFinite(salesDays) && salesDays > 0) {
+    list.sales = parseSales(sales);
+    list.salesDays = salesDays;
+  }
   return list;
 }
 

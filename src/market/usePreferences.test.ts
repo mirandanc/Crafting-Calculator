@@ -14,6 +14,12 @@ describe('usePreferences', () => {
     expect(result.current.preferences.minProfit).toEqual({ gold: 0, silver: 0, copper: 250 });
     act(() => result.current.actions.normalizeMinProfit());
     expect(result.current.preferences.minProfit).toEqual({ gold: 0, silver: 2, copper: 50 });
-    expect(loadPreferences()).toEqual({ tab: 'analysis', professions: ['Tailoring'], minProfit: { gold: 0, silver: 2, copper: 50 } });
+    act(() => result.current.actions.setSort('margin'));
+    expect(loadPreferences()).toEqual({
+      tab: 'analysis',
+      professions: ['Tailoring'],
+      minProfit: { gold: 0, silver: 2, copper: 50 },
+      sort: 'margin',
+    });
   });
 });

@@ -15,3 +15,5 @@ coverage/
 # Output of `npm run fetch:auction-prices` (uploaded to KV, never committed)
 auction-prices.json
 auction-prices.json.tmp
+auction-history.json
+auction-history.json.tmp
