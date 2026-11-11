@@ -10,6 +10,7 @@ import {
   nextHistory,
   parseHistory,
   pruneEvents,
+  readableHistory,
   serializeHistory,
   snapshotTime,
   summarizeSales,
@@ -361,6 +362,22 @@ describe('nextHistory', () => {
       const previous: AuctionHistory = { at: previousAt, listings: previousListings, events: [old, kept] };
       expect(nextHistory(previous, current, NOW)).toEqual({ at: previousAt, listings: previousListings, events: [kept] });
     }
+  });
+});
+
+describe('readableHistory', () => {
+  const stored = (at: string) => serializeHistory({ at, listings: [listing(10, 100, 5, 1, 'LONG')], events: [] });
+
+  it('reads a history dated up to 1 hour after the run time', () => {
+    expect(readableHistory(stored('2026-11-11T13:00:00.000Z'), NOW)?.at).toBe('2026-11-11T13:00:00.000Z');
+  });
+
+  it('treats a history dated more than 1 hour after the run time as unreadable, so it cannot freeze', () => {
+    expect(readableHistory(stored('2026-11-11T13:00:00.001Z'), NOW)).toBeNull();
+  });
+
+  it('gives no history for corrupt input', () => {
+    expect(readableHistory('{', NOW)).toBeNull();
   });
 });
 

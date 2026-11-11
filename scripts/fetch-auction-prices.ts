@@ -97,6 +97,8 @@ const REQUEST_TIMEOUT_MS = 60_000;
 const OUTPUT_FILE = resolve('auction-prices.json');
 /** The job's memory between runs; the workflow downloads and uploads it (KV key `auction-history`). */
 const HISTORY_FILE = resolve('auction-history.json');
+/** How far past the run time a stored snapshot may be dated (clock skew) before the history is distrusted. */
+const HISTORY_FUTURE_TOLERANCE_MS = HOUR_MS;
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -339,6 +341,16 @@ export function parseHistory(text: string): AuctionHistory | null {
 }
 
 /**
+ * The stored history, or null when unreadable or dated more than HISTORY_FUTURE_TOLERANCE_MS after the
+ * run: a snapshot from the future would make every new one look older and freeze the history forever.
+ */
+export function readableHistory(text: string, runTime: Date): AuctionHistory | null {
+  const history = parseHistory(text);
+  if (history === null || Date.parse(history.at) > runTime.getTime() + HISTORY_FUTURE_TOLERANCE_MS) return null;
+  return history;
+}
+
+/**
  * Sales per item over the covered time: perDay = units ÷ days covered, price = copper ÷ units. Covered
  * time is the sum of the gaps, so a missed run is not a day without sales. Null before the first comparison.
  */
@@ -456,14 +468,14 @@ async function listHouses(client: BlizzardClient): Promise<void> {
 }
 
 /** The previous run's history, or null on the first run or when the file is unreadable. */
-async function readHistory(): Promise<AuctionHistory | null> {
+async function readHistory(runTime: Date): Promise<AuctionHistory | null> {
   let text: string;
   try {
     text = await readFile(HISTORY_FILE, 'utf8');
   } catch {
     return null; // no file: the first run, or the workflow could not download it
   }
-  const history = parseHistory(text);
+  const history = readableHistory(text, runTime);
   if (history === null) console.warn('auction-history.json is unreadable; starting a new sales history');
   return history;
 }
@@ -495,13 +507,18 @@ async function main(): Promise<void> {
   const now = new Date();
   // The snapshot is dated by Blizzard's data, not by this run: the answers can lag the run by an hour.
   const takenAt = snapshotTime([house.lastModified, commodities.lastModified], now);
-  const history = nextHistory(await readHistory(), listings, takenAt);
+  const history = nextHistory(await readHistory(now), listings, takenAt);
   const list = buildPriceList(listings, HOUSE, now, summarizeSales(history.events));
   checkPriceList(list);
 
-  // A broken answer stops above, so neither file replaces good data.
-  await writeAtomically(HISTORY_FILE, serializeHistory(history));
+  // A broken answer stops above, so neither file replaces good data. The prices go first, and a history
+  // problem only warns: it must never fail the price update.
   await writeAtomically(OUTPUT_FILE, JSON.stringify(list));
+  try {
+    await writeAtomically(HISTORY_FILE, serializeHistory(history));
+  } catch (error) {
+    console.warn(`Could not write auction-history.json; the sales history is not updated this run: ${String(error)}`);
+  }
   const salesText = list.salesDays === undefined ? 'no sales yet' : `sales over ${list.salesDays.toFixed(2)} days`;
   console.log(
     `Priced ${Object.keys(list.prices).length} items from ${listings.length} listings in house ${HOUSE.id} (data of ${takenAt.toISOString()}); ${salesText}`,
