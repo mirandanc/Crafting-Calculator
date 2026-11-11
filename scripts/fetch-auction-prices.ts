@@ -56,6 +56,10 @@ type HouseIndex = {
 const MARKET_SHARE = 0.15;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 60 * MINUTE_MS;
+const DAY_MS = 24 * HOUR_MS;
+/** Sales older than this are forgotten. */
+const SALES_WINDOW_DAYS = 7;
+const SALES_WINDOW_MS = SALES_WINDOW_DAYS * DAY_MS;
 /** In the order the history file stores them (a band is saved as its index). */
 const BANDS: TimeLeftBand[] = ['SHORT', 'MEDIUM', 'LONG', 'VERY_LONG'];
 /**
@@ -86,6 +90,10 @@ function isRecord(value: unknown): value is UnknownRecord {
 
 function isPositiveInteger(value: unknown): value is number {
   return typeof value === 'number' && Number.isInteger(value) && value > 0;
+}
+
+function isValidTime(value: unknown): value is string {
+  return typeof value === 'string' && !Number.isNaN(Date.parse(value));
 }
 
 function listingsOf(body: unknown, name: string, required: boolean): unknown[] {
@@ -172,6 +180,32 @@ export function marketValues(listings: Listing[]): Record<string, number> {
 /** Units sold of one item and the copper they brought. */
 export type SoldItem = [quantity: number, copper: number];
 
+/** What one run found sold since the previous run. */
+export type SalesEvent = {
+  /** ISO time of the run. */
+  at: string;
+  /** Time since the previous snapshot; the covered time this event adds. */
+  gapMs: number;
+  sold: Record<string, SoldItem>;
+};
+
+/** What the job carries from one run to the next (`auction-history.json`, KV key `auction-history`). */
+export type AuctionHistory = {
+  /** ISO time of the snapshot. */
+  at: string;
+  listings: Listing[];
+  events: SalesEvent[];
+};
+
+/** A listing as stored: [id, itemId, unitPrice in whole copper, quantity, index in BANDS]. About 5 MB for 146 000. */
+type StoredListing = [id: number, itemId: number, unitPrice: number, quantity: number, band: number];
+
+type StoredHistory = {
+  at: string;
+  listings: StoredListing[];
+  events: SalesEvent[];
+};
+
 /**
  * Units sold per item id between two snapshots `gapMs` apart. A listing counts only when its band's
  * minimum exceeds the gap, so it can't have expired: then a vanished listing sold its whole quantity
@@ -195,6 +229,90 @@ export function detectSales(previous: Listing[], current: Listing[], gapMs: numb
   const sales: Record<string, SoldItem> = {};
   for (const [itemId, [quantity, copper]] of totals) sales[itemId] = [quantity, Math.round(copper)];
   return sales;
+}
+
+/** Keeps the events whose whole covered span lies within the last 7 days. */
+export function pruneEvents(events: SalesEvent[], now: Date): SalesEvent[] {
+  const windowStart = now.getTime() - SALES_WINDOW_MS;
+  return events.filter((entry) => Date.parse(entry.at) - entry.gapMs >= windowStart);
+}
+
+/**
+ * The history after this run: today's listings become the snapshot, and the sales since the previous
+ * snapshot become an event. No event when the gap is not positive or reaches the VERY_LONG minimum:
+ * then no listing can count, and the gap would only dilute the sales per day.
+ */
+export function nextHistory(previous: AuctionHistory | null, current: Listing[], now: Date): AuctionHistory {
+  const at = now.toISOString();
+  if (previous === null) return { at, listings: current, events: [] };
+  const events = [...previous.events];
+  const gapMs = now.getTime() - Date.parse(previous.at);
+  if (gapMs > 0 && gapMs < bandMinimumMs('VERY_LONG')) events.push({ at, gapMs, sold: detectSales(previous.listings, current, gapMs) });
+  return { at, listings: current, events: pruneEvents(events, now) };
+}
+
+export function serializeHistory(history: AuctionHistory): string {
+  const stored: StoredHistory = {
+    at: history.at,
+    listings: history.listings.map((entry): StoredListing => [
+      entry.id,
+      entry.itemId,
+      Math.round(entry.unitPrice),
+      entry.quantity,
+      BANDS.indexOf(entry.band),
+    ]),
+    events: history.events,
+  };
+  return JSON.stringify(stored);
+}
+
+function parseStoredListing(raw: unknown): Listing | null {
+  if (!Array.isArray(raw) || raw.length !== 5) return null;
+  const [id, itemId, unitPrice, quantity, bandIndex]: unknown[] = raw;
+  if (!isPositiveInteger(id) || !isPositiveInteger(itemId) || !isPositiveInteger(quantity)) return null;
+  if (typeof unitPrice !== 'number' || !Number.isFinite(unitPrice) || unitPrice < 0) return null;
+  const band: TimeLeftBand | undefined = typeof bandIndex === 'number' ? BANDS[bandIndex] : undefined;
+  if (band === undefined) return null;
+  return { id, itemId, unitPrice, quantity, band };
+}
+
+function parseEvent(raw: unknown): SalesEvent | null {
+  if (!isRecord(raw) || !isValidTime(raw.at) || !isRecord(raw.sold)) return null;
+  const { gapMs } = raw;
+  if (typeof gapMs !== 'number' || !Number.isFinite(gapMs) || gapMs <= 0) return null;
+  const sold: Record<string, SoldItem> = {};
+  for (const [itemId, entry] of Object.entries(raw.sold)) {
+    if (!/^\d+$/.test(itemId) || !Array.isArray(entry)) continue;
+    const [quantity, copper]: unknown[] = entry;
+    if (isPositiveInteger(quantity) && typeof copper === 'number' && Number.isFinite(copper) && copper >= 0) sold[itemId] = [quantity, copper];
+  }
+  return { at: raw.at, gapMs, sold };
+}
+
+/**
+ * Reads auction-history.json. Anything unreadable (an empty file, "Value not found", broken JSON, a wrong
+ * shape) gives null, and the job starts a new history rather than fail the price update. Bad entries are
+ * dropped one by one.
+ */
+export function parseHistory(text: string): AuctionHistory | null {
+  let value: unknown;
+  try {
+    value = JSON.parse(text);
+  } catch {
+    return null;
+  }
+  if (!isRecord(value) || !isValidTime(value.at) || !Array.isArray(value.listings)) return null;
+  const listings: Listing[] = [];
+  for (const raw of value.listings) {
+    const parsed = parseStoredListing(raw);
+    if (parsed !== null) listings.push(parsed);
+  }
+  const events: SalesEvent[] = [];
+  for (const raw of Array.isArray(value.events) ? value.events : []) {
+    const parsed = parseEvent(raw);
+    if (parsed !== null) events.push(parsed);
+  }
+  return { at: value.at, listings, events };
 }
 
 export function createBlizzardClient(clientId: string, clientSecret: string, deps: BlizzardClientDeps): BlizzardClient {

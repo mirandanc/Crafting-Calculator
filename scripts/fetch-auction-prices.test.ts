@@ -7,10 +7,17 @@ import {
   detectSales,
   marketValue,
   marketValues,
+  nextHistory,
+  parseHistory,
+  pruneEvents,
+  serializeHistory,
   totalQuantities,
   unitListings,
+  type AuctionHistory,
   type BlizzardClientDeps,
   type Listing,
+  type SalesEvent,
+  type SoldItem,
   type TimeLeftBand,
 } from '@scripts/fetch-auction-prices';
 import { GOLD_CAP_COPPER } from '@/money/money';
@@ -271,5 +278,97 @@ describe('detectSales', () => {
     // 2 × 33.4 + 1 × 33.4 = 100.2 → 100.
     const previous = [listing(10, 33.4, 2, 1, 'LONG'), listing(10, 33.4, 1, 2, 'LONG')];
     expect(detectSales(previous, [], 90 * MINUTES)).toEqual({ '10': [3, 100] });
+  });
+});
+
+const HOURS = 60 * MINUTES;
+const NOW = new Date('2026-11-11T12:00:00.000Z');
+
+const event = (at: string, gapMs: number, sold: Record<string, SoldItem> = {}): SalesEvent => ({ at, gapMs, sold });
+
+describe('pruneEvents', () => {
+  it('keeps events whose whole span lies within the last 7 days', () => {
+    const tooOld = event('2026-11-04T13:00:00.000Z', 1.5 * HOURS); // starts 11:30, before the window opens at 12:00
+    const edge = event('2026-11-04T13:30:00.000Z', 1.5 * HOURS); // starts exactly at 12:00
+    const recent = event('2026-11-11T10:30:00.000Z', 5.25 * HOURS);
+    expect(pruneEvents([tooOld, edge, recent], NOW)).toEqual([edge, recent]);
+  });
+});
+
+describe('nextHistory', () => {
+  const current = [listing(10, 120, 12, 2, 'VERY_LONG')];
+
+  it('starts a history with no events when there was none', () => {
+    expect(nextHistory(null, current, NOW)).toEqual({ at: '2026-11-11T12:00:00.000Z', listings: current, events: [] });
+  });
+
+  it('adds an event for the gap since the previous snapshot and drops events older than 7 days', () => {
+    const old = event('2026-11-01T12:00:00.000Z', 5.25 * HOURS, { '10': [1, 100] });
+    const kept = event('2026-11-11T10:30:00.000Z', 5.25 * HOURS, { '20': [2, 100] });
+    const previous: AuctionHistory = {
+      at: '2026-11-11T10:30:00.000Z',
+      listings: [listing(10, 100, 5, 1, 'LONG'), listing(10, 120, 20, 2, 'VERY_LONG')],
+      events: [old, kept],
+    };
+    expect(nextHistory(previous, current, NOW)).toEqual({
+      at: '2026-11-11T12:00:00.000Z',
+      listings: current,
+      events: [kept, event('2026-11-11T12:00:00.000Z', 1.5 * HOURS, { '10': [13, 1460] })],
+    });
+  });
+
+  it('records no event when no band could outlast the gap, or the previous snapshot is not older', () => {
+    const kept = event('2026-11-11T02:00:00.000Z', 5.25 * HOURS);
+    const at = (previousAt: string) => nextHistory({ at: previousAt, listings: [], events: [kept] }, current, NOW).events;
+    expect(at('2026-11-11T04:00:00.000Z')).toEqual([kept]); // 8 h: even VERY_LONG may have expired
+    expect(at('2026-11-11T12:00:00.000Z')).toEqual([kept]);
+    expect(at('2026-11-11T13:00:00.000Z')).toEqual([kept]);
+  });
+});
+
+describe('serializeHistory and parseHistory', () => {
+  const history: AuctionHistory = {
+    at: '2026-11-11T12:00:00.000Z',
+    listings: [listing(10, 120, 12, 2, 'VERY_LONG'), listing(20, 50, 3, 3, 'SHORT')],
+    events: [event('2026-11-11T12:00:00.000Z', 1.5 * HOURS, { '10': [13, 1460] })],
+  };
+
+  it('round-trips a history, storing each listing as a compact array', () => {
+    const text = serializeHistory(history);
+    expect(JSON.parse(text)).toMatchObject({ listings: [[2, 10, 120, 12, 3], [3, 20, 50, 3, 0]] });
+    expect(parseHistory(text)).toEqual(history);
+  });
+
+  it('stores unit prices as whole copper', () => {
+    const fractional: AuctionHistory = { ...history, listings: [listing(40, 550.5, 2, 6, 'LONG')] };
+    expect(parseHistory(serializeHistory(fractional))?.listings).toEqual([listing(40, 551, 2, 6, 'LONG')]);
+  });
+
+  it('gives no history for missing or corrupt input', () => {
+    for (const text of ['', 'Value not found', '{', 'null', '[]', '{"at":"x","listings":[]}', '{"at":"2026-11-11T12:00:00.000Z"}']) {
+      expect(parseHistory(text)).toBeNull();
+    }
+  });
+
+  it('drops bad listings, events and sold entries one by one', () => {
+    const text = JSON.stringify({
+      at: '2026-11-11T12:00:00.000Z',
+      listings: [[2, 10, 120, 12, 3], [0, 10, 1, 1, 1], [3, 10, 1, 1, 9], [4, 10, -1, 1, 1], [5, 10, 1, 1.5, 1], 'x'],
+      events: [
+        { at: '2026-11-11T12:00:00.000Z', gapMs: 5_400_000, sold: { '10': [13, 1460], '11': [0, 5], '12': [1, -1], x: [1, 1] } },
+        { at: 'x', gapMs: 5_400_000, sold: {} },
+        { at: '2026-11-11T12:00:00.000Z', gapMs: -1, sold: {} },
+        { at: '2026-11-11T12:00:00.000Z', gapMs: 5_400_000 },
+      ],
+    });
+    expect(parseHistory(text)).toEqual({
+      at: '2026-11-11T12:00:00.000Z',
+      listings: [listing(10, 120, 12, 2, 'VERY_LONG')],
+      events: [event('2026-11-11T12:00:00.000Z', 5_400_000, { '10': [13, 1460] })],
+    });
+  });
+
+  it('reads a history without events as one that has none yet', () => {
+    expect(parseHistory('{"at":"2026-11-11T12:00:00.000Z","listings":[]}')).toEqual({ at: '2026-11-11T12:00:00.000Z', listings: [], events: [] });
   });
 });
