@@ -30,11 +30,12 @@ previous one:
 
 - A listing that vanishes, or a commodity stack that shrinks, before its time left could have run out counts as sold
   at its listed price. Cancels count too.
-- The 1h30 gaps (06:00 → 07:30, 18:00 → 19:30) let 2-hour-plus listings count. The 5h15 gaps count listings with
-  more than 8 hours left.
+- Gaps are measured between the times Blizzard published its data (about hourly), not the run times. The other gaps
+  (about 5 h) count listings that had more than 8 hours left. A 1h30 pair (06:00 → 07:30, 18:00 → 19:30) measures
+  1 h or 2 h; at 1 h it also counts listings that had more than 2 hours left.
 - Sales from the last 7 days give each item's sales per day and average sale price. A missed run doesn't count as a
   day without sales.
-- The previous snapshot and the sales are kept in the KV key `auction-history`, about 5 MB. The workflow downloads it
+- The previous snapshot and the sales are kept in the KV key `auction-history`, about 4 MB. The workflow downloads it
   before the script and uploads it after. If it is missing or unreadable, a new history starts.
 
 - Locally: put `BLIZZARD_CLIENT_ID` and `BLIZZARD_CLIENT_SECRET` in `.env`, then `npm run fetch:auction-prices`
@@ -55,7 +56,7 @@ the recipes most worth crafting right now.
 - Reagents use the cheaper of the auction and vendor price; a vendor price is tagged "Vendor".
 - Results are sold at the lower of today's auction price and their average sale price.
 - Left out: recipes with a cooldown, results where fewer than 5 are listed for sale, results that sell fewer than
-  5 a day, and anything above a 1500% margin (a listing far above the item's worth that nobody buys).
+  5 a day or have fewer than 5 sales counted so far, and anything above a 1500% margin (a listing far above the item's worth that nobody buys).
 - "Sort by" picks Profit per day (profit per craft × sales per day, the default) or Margin. Each card shows
   "~N sold/day · ≈ profit/day", and a note above the cards says how many days of sales the ranking uses.
   Until the job has compared two runs, the ranking uses margin only and says so.

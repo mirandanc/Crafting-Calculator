@@ -1,8 +1,9 @@
 name: Auction prices
 
 # Six times a day: 06:00, 07:30, 12:45, 18:00, 19:30 and 00:45 GMT-3 (cron runs in UTC: 09:00, 10:30, 15:45, 21:00,
-# 22:30 and 03:45), plus a "Run workflow" button. The 1h30 pairs let LONG listings count as sales; every other gap
-# is 5h15, so VERY_LONG listings always count (see scripts/fetch-auction-prices.ts).
+# 22:30 and 03:45), plus a "Run workflow" button. Gaps are measured between Blizzard's hourly data, so a 1h30 pair
+# is 1 h or 2 h apart: at 1 h LONG listings count as sales too. Every other gap is about 5 h, so VERY_LONG listings
+# always count (see scripts/fetch-auction-prices.ts).
 # GitHub only runs schedules on the default branch, and pauses them after 60 days without commits; the manual
 # button turns them back on.
 on:
@@ -60,9 +61,10 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-      # After a failed download the script's history has no past in it, so it must not replace the stored one.
+      # After a failed download the script's history has no past in it, so it must not replace the stored one. If the
+      # script could not write the history, there is nothing to upload.
       - name: Store the sales history in Cloudflare KV
-        if: steps.history.outputs.status != 'failed'
+        if: steps.history.outputs.status != 'failed' && hashFiles('auction-history.json') != ''
         run: npx wrangler kv key put auction-history --path auction-history.json --binding AUCTION_PRICES --remote
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
