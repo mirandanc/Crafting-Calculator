@@ -1,0 +1,58 @@
+.tooltip {
+  position: fixed;
+  z-index: 1000;
+  width: max-content;
+  max-width: min(260px, calc(100vw - 16px));
+  margin: 0;
+  padding: 7px 9px;
+  border: 1px solid #5f6b7a;
+  border-radius: 5px;
+  background: rgba(8, 10, 22, 0.94);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.5);
+  color: #ffffff;
+  font-family: Verdana, 'Trebuchet MS', Arial, sans-serif;
+  font-size: 13px;
+  line-height: 1.35;
+  text-align: start;
+  pointer-events: none;
+}
+
+.tooltip p {
+  margin: 0;
+}
+
+.name {
+  font-size: 14px;
+}
+
+.itemLevel {
+  color: #ffd100;
+}
+
+.muted {
+  color: #9d9d9d;
+  font-style: italic;
+}
+
+.split {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+}
+
+.effect {
+  color: #1eff00;
+}
+
+.sell {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 4px;
+}
+
+@media (forced-colors: active) {
+  .tooltip {
+    border-color: CanvasText;
+  }
+}

@@ -5,6 +5,7 @@ import { BOOKMARKS, bookmarkId, Bookmarks } from '@/components/Bookmarks/Bookmar
 import { ConnectionNotice } from '@/components/ConnectionNotice/ConnectionNotice';
 import { EntryList } from '@/components/EntryList/EntryList';
 import { Footer } from '@/components/Footer/Footer';
+import { ItemTooltipProvider } from '@/components/ItemTooltip/ItemTooltipProvider';
 import { MarketAnalysis } from '@/components/MarketAnalysis/MarketAnalysis';
 import { MuteToggle } from '@/components/MuteToggle/MuteToggle';
 import { Page } from '@/components/Page/Page';
@@ -74,60 +75,62 @@ export function App() {
   const leftTitle = BOOKMARKS.find((bookmark) => bookmark.tab === preferences.tab)?.label ?? '';
 
   return (
-    <div className={styles.page}>
-      <Ambience />
-      <header className={styles.header}>
-        <h1 className={styles.heading}>Crafting Calculator</h1>
-        <MuteToggle muted={sheet.muted} onToggle={() => actions.setMuted(!sheet.muted)} />
-      </header>
-      <main className={styles.book}>
-        <Bookmarks selected={preferences.tab} panelId={panelId} onSelect={selectTab} />
-        <div className={styles.stitching} aria-hidden="true" />
-        <Page
-          key={preferences.tab}
-          id={panelId}
-          role="tabpanel"
-          side="left"
-          labelledBy={bookmarkId(preferences.tab)}
-          heading={leftTitle}
-          turning={turned}
-        >
-          <ProfessionPicker professions={professions} selected={selectedProfessions} onChange={preferenceActions.setProfessions} />
-          {preferences.tab === 'list' ? (
-            <>
-              <RecipeBookNotice failed={catalogFailed} />
-              <ConnectionNotice lost={connectionLost} />
-              <EntryList
-                entries={sheet.entries}
-                prices={prices}
-                typedPrices={sheet.prices}
-                marketByKey={marketByKey}
-                auctionLoaded={auction.list !== null}
+    <ItemTooltipProvider>
+      <div className={styles.page}>
+        <Ambience />
+        <header className={styles.header}>
+          <h1 className={styles.heading}>Crafting Calculator</h1>
+          <MuteToggle muted={sheet.muted} onToggle={() => actions.setMuted(!sheet.muted)} />
+        </header>
+        <main className={styles.book}>
+          <Bookmarks selected={preferences.tab} panelId={panelId} onSelect={selectTab} />
+          <div className={styles.stitching} aria-hidden="true" />
+          <Page
+            key={preferences.tab}
+            id={panelId}
+            role="tabpanel"
+            side="left"
+            labelledBy={bookmarkId(preferences.tab)}
+            heading={leftTitle}
+            turning={turned}
+          >
+            <ProfessionPicker professions={professions} selected={selectedProfessions} onChange={preferenceActions.setProfessions} />
+            {preferences.tab === 'list' ? (
+              <>
+                <RecipeBookNotice failed={catalogFailed} />
+                <ConnectionNotice lost={connectionLost} />
+                <EntryList
+                  entries={sheet.entries}
+                  prices={prices}
+                  typedPrices={sheet.prices}
+                  marketByKey={marketByKey}
+                  auctionLoaded={auction.list !== null}
+                  catalog={catalog}
+                  professions={selectedProfessions}
+                  actions={actions}
+                  onReachable={handleReachable}
+                />
+              </>
+            ) : (
+              <MarketAnalysis
                 catalog={catalog}
+                catalogFailed={catalogFailed}
+                auction={auction}
                 professions={selectedProfessions}
-                actions={actions}
-                onReachable={handleReachable}
+                minProfit={preferences.minProfit}
+                onMinProfitChange={preferenceActions.setMinProfit}
+                onMinProfitBlur={preferenceActions.normalizeMinProfit}
+                sort={preferences.sort}
+                onSortChange={preferenceActions.setSort}
+                onAdd={addFromAnalysis}
               />
-            </>
-          ) : (
-            <MarketAnalysis
-              catalog={catalog}
-              catalogFailed={catalogFailed}
-              auction={auction}
-              professions={selectedProfessions}
-              minProfit={preferences.minProfit}
-              onMinProfitChange={preferenceActions.setMinProfit}
-              onMinProfitBlur={preferenceActions.normalizeMinProfit}
-              sort={preferences.sort}
-              onSortChange={preferenceActions.setSort}
-              onAdd={addFromAnalysis}
-            />
-          )}
-        </Page>
-        <ShoppingList summary={summary} />
-        <Ribbon />
-      </main>
-      <Footer auction={auction} />
-    </div>
+            )}
+          </Page>
+          <ShoppingList summary={summary} />
+          <Ribbon />
+        </main>
+        <Footer auction={auction} />
+      </div>
+    </ItemTooltipProvider>
   );
 }
