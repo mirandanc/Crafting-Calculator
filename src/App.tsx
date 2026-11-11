@@ -1,7 +1,7 @@
 import { useCallback, useId, useMemo, useState } from 'react';
 import styles from '@/App.module.css';
 import { Ambience } from '@/components/Ambience/Ambience';
-import { BOOKMARKS, Bookmarks } from '@/components/Bookmarks/Bookmarks';
+import { BOOKMARKS, bookmarkId, Bookmarks } from '@/components/Bookmarks/Bookmarks';
 import { ConnectionNotice } from '@/components/ConnectionNotice/ConnectionNotice';
 import { EntryList } from '@/components/EntryList/EntryList';
 import { Footer } from '@/components/Footer/Footer';
@@ -79,9 +79,9 @@ export function App() {
           id={panelId}
           role="tabpanel"
           side="left"
-          label={leftTitle}
+          labelledBy={bookmarkId(preferences.tab)}
           heading={leftTitle}
-          className={turned ? styles.turn : undefined}
+          turning={turned}
         >
           <ProfessionPicker professions={professions} selected={selectedProfessions} onChange={preferenceActions.setProfessions} />
           {preferences.tab === 'list' ? (

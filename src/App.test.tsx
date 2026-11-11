@@ -576,9 +576,10 @@ describe('App', () => {
   it('flips the left page between the market list and the market analysis, and remembers the tab', async () => {
     const { user, unmount } = await renderApp();
     expect(screen.getByRole('tab', { name: 'Market list' })).toHaveAttribute('aria-selected', 'true');
-    expect(screen.getByRole('tabpanel', { name: 'Market list' })).toBeInTheDocument();
+    // The page only turns once a bookmark is picked, never on the first render.
+    expect(screen.getByRole('tabpanel', { name: 'Market list' })).not.toHaveAttribute('data-turning');
     await user.click(screen.getByRole('tab', { name: 'Market analysis' }));
-    expect(screen.getByRole('tabpanel', { name: 'Market analysis' })).toBeInTheDocument();
+    expect(screen.getByRole('tabpanel', { name: 'Market analysis' })).toHaveAttribute('data-turning', 'true');
     expect(screen.queryByRole('article', { name: 'Recipe 1' })).toBeNull();
     unmount();
     await renderApp();
@@ -601,5 +602,10 @@ describe('App', () => {
     expect(within(screen.getByRole('group', { name: 'Professions' })).getByText('Mining', { selector: 'summary span' })).toBeInTheDocument();
     await user.type(within(recipeArticle(1)).getByRole('combobox', { name: 'Recipe' }), 'bronze');
     expect(screen.getAllByRole('option').map((option) => option.textContent)).toEqual(['Smelt BronzeMining']);
+    // The next change saves only names the book still has.
+    await user.click(screen.getByText('Mining', { selector: 'summary span' }));
+    await user.click(screen.getByRole('checkbox', { name: 'Engineering' }));
+    const stored: unknown = JSON.parse(localStorage.getItem(PREFERENCES_KEY) ?? 'null');
+    expect(stored).toMatchObject({ professions: ['Engineering', 'Mining'] });
   });
 });

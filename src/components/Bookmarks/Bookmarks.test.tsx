@@ -30,4 +30,16 @@ describe('Bookmarks', () => {
     await userEvent.keyboard('{ArrowLeft}');
     expect(onSelect).toHaveBeenLastCalledWith('analysis');
   });
+
+  it('jumps to the first tab with Home and the last with End', async () => {
+    const onSelect = vi.fn();
+    render(<Bookmarks selected="list" panelId="panel" onSelect={onSelect} />);
+    screen.getByRole('tab', { name: 'Market list' }).focus();
+    await userEvent.keyboard('{End}');
+    expect(onSelect).toHaveBeenLastCalledWith('analysis');
+    expect(screen.getByRole('tab', { name: 'Market analysis' })).toHaveFocus();
+    await userEvent.keyboard('{Home}');
+    expect(onSelect).toHaveBeenLastCalledWith('list');
+    expect(screen.getByRole('tab', { name: 'Market list' })).toHaveFocus();
+  });
 });

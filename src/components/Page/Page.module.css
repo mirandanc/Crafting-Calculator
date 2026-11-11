@@ -85,6 +85,29 @@
   color: var(--color-rubric);
 }
 
+/* The left page turns in from the spine when a bookmark is chosen. */
+.page[data-turning='true'] {
+  transform-origin: right center;
+  animation: turn 0.5s cubic-bezier(0.3, 0.7, 0.3, 1) both;
+}
+
+@keyframes turn {
+  from {
+    transform: perspective(1800px) rotateY(-70deg);
+    opacity: 0.4;
+  }
+  to {
+    transform: none;
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .page[data-turning='true'] {
+    animation: none;
+  }
+}
+
 @media (max-width: 520px) {
   .page {
     min-height: 0;

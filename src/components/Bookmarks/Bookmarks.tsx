@@ -19,15 +19,24 @@ export const BOOKMARKS: Bookmark[] = [
   { tab: 'analysis', label: 'Market analysis' },
 ];
 
-/** Ribbon bookmarks above the left page; arrow keys move between them as in any tab list. */
+/** Id of a bookmark's tab, so the page it shows can be labelled by it. */
+export function bookmarkId(tab: BookTab): string {
+  return `bookmark-${tab}`;
+}
+
+/** Ribbon bookmarks above the left page; arrow keys, Home and End move between them as in any tab list. */
 export function Bookmarks({ selected, panelId, onSelect }: BookmarksProps) {
   const tabsRef = useRef<(HTMLButtonElement | null)[]>([]);
 
   const onKeyDown = (event: KeyboardEvent<HTMLButtonElement>, index: number) => {
-    if (event.key !== 'ArrowRight' && event.key !== 'ArrowLeft') return;
+    const last = BOOKMARKS.length - 1;
+    let next: number;
+    if (event.key === 'ArrowRight') next = (index + 1) % BOOKMARKS.length;
+    else if (event.key === 'ArrowLeft') next = (index + last) % BOOKMARKS.length;
+    else if (event.key === 'Home') next = 0;
+    else if (event.key === 'End') next = last;
+    else return;
     event.preventDefault();
-    const step = event.key === 'ArrowRight' ? 1 : -1;
-    const next = (index + step + BOOKMARKS.length) % BOOKMARKS.length;
     tabsRef.current[next]?.focus();
     onSelect(BOOKMARKS[next].tab);
   };
@@ -44,7 +53,7 @@ export function Bookmarks({ selected, panelId, onSelect }: BookmarksProps) {
             }}
             type="button"
             role="tab"
-            id={`bookmark-${bookmark.tab}`}
+            id={bookmarkId(bookmark.tab)}
             aria-selected={active}
             aria-controls={panelId}
             tabIndex={active ? 0 : -1}

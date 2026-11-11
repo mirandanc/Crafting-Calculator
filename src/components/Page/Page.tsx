@@ -3,15 +3,18 @@ import styles from '@/components/Page/Page.module.css';
 
 type PageSide = 'left' | 'right';
 
-type PageProps = {
+/** The page is named by its own label, or by another element such as the bookmark that shows it. */
+type PageName = { label: string } | { labelledBy: string };
+
+type PageProps = PageName & {
   side: PageSide;
-  label: string;
   heading: string;
   children: ReactNode;
   id?: string;
-  className?: string;
   /** Set when the page is the panel of the book's bookmarks. */
   role?: 'tabpanel';
+  /** Plays the page turn as the page mounts. */
+  turning?: boolean;
 };
 
 type FlourishProps = {
@@ -40,9 +43,19 @@ function Flourish({ className }: FlourishProps) {
   );
 }
 
-export function Page({ side, label, heading, children, id, className, role }: PageProps) {
+export function Page(props: PageProps) {
+  const { side, heading, children, id, role, turning = false } = props;
+  const label = 'label' in props ? props.label : undefined;
+  const labelledBy = 'labelledBy' in props ? props.labelledBy : undefined;
   return (
-    <section id={id} role={role} className={[styles.page, styles[side], className].filter(Boolean).join(' ')} aria-label={label}>
+    <section
+      id={id}
+      role={role}
+      className={`${styles.page} ${styles[side]}`}
+      aria-label={label}
+      aria-labelledby={labelledBy}
+      data-turning={turning ? 'true' : undefined}
+    >
       <Flourish className={styles.cornerTop} />
       <Flourish className={styles.cornerBottom} />
       <div className={styles.heading}>
