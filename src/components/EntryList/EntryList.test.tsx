@@ -15,9 +15,10 @@ type HarnessProps = {
   /** Given, the auction list counts as loaded. */
   marketByKey?: MarketPricesByKey;
   onClearPrice?: (key: string) => void;
+  professions?: string[];
 };
 
-function Harness({ initialEntries, typedPrices = {}, marketByKey, onClearPrice = () => {} }: HarnessProps) {
+function Harness({ initialEntries, typedPrices = {}, marketByKey, onClearPrice = () => {}, professions = [] }: HarnessProps) {
   const [entries, setEntries] = useState<Entry[]>(initialEntries);
   const actions: SheetActions = {
     addRecipe: () => setEntries((current) => [...current, createRecipeBlock()]),
@@ -43,6 +44,7 @@ function Harness({ initialEntries, typedPrices = {}, marketByKey, onClearPrice =
       marketByKey={marketByKey ?? {}}
       auctionLoaded={marketByKey !== undefined}
       catalog={null}
+      professions={professions}
       actions={actions}
       onReachable={() => {}}
     />

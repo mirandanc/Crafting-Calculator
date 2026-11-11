@@ -28,7 +28,7 @@ type Auction = {
 
 const EMPTY_BLOCK: RecipeBlock = { kind: 'recipe', id: 'r', recipe: null, wanted: null };
 
-const renderBlock = (block: RecipeBlock, prices: Prices = {}, auction: Auction | null = null) => {
+const renderBlock = (block: RecipeBlock, prices: Prices = {}, auction: Auction | null = null, professions: string[] = []) => {
   const handlers: Handlers = {
     onChoose: vi.fn(),
     onWantedChange: vi.fn(),
@@ -47,6 +47,7 @@ const renderBlock = (block: RecipeBlock, prices: Prices = {}, auction: Auction |
       typedPrices={auction?.typedPrices ?? {}}
       marketByKey={auction?.marketByKey ?? {}}
       auctionLoaded={auction !== null}
+      professions={professions}
       {...handlers}
     />,
   );
@@ -60,6 +61,14 @@ describe('RecipeBlockEditor', () => {
     await user.click(screen.getByRole('option', { name: /Smelt Bronze/ }));
     expect(handlers.onChoose).toHaveBeenCalledWith(TEST_CATALOG.recipes[0], TEST_CATALOG.items);
     expect(within(article).getByRole('combobox', { name: 'Recipe' })).toHaveValue('Smelt Bronze');
+  });
+
+  it('only offers the recipes of the selected professions', async () => {
+    const { user, article } = renderBlock(EMPTY_BLOCK, {}, null, ['Mining']);
+    await user.type(within(article).getByRole('combobox', { name: 'Recipe' }), 'bronze');
+    const options = screen.getAllByRole('option');
+    expect(options).toHaveLength(1);
+    expect(options[0]).toHaveAccessibleName(/Smelt Bronze/);
   });
 
   it('shows ×N, the craft note and locked reagent quantities', () => {

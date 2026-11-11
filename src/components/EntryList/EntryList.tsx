@@ -17,6 +17,8 @@ type EntryListProps = {
   marketByKey: MarketPricesByKey;
   auctionLoaded: boolean;
   catalog: RecipeCatalog | null;
+  /** Narrows the recipe search; empty means all. */
+  professions: string[];
   actions: SheetActions;
   onReachable: (reachable: boolean) => void;
 };
@@ -38,7 +40,7 @@ function PlusIcon() {
   );
 }
 
-export function EntryList({ entries, prices, typedPrices, marketByKey, auctionLoaded, catalog, actions, onReachable }: EntryListProps) {
+export function EntryList({ entries, prices, typedPrices, marketByKey, auctionLoaded, catalog, professions, actions, onReachable }: EntryListProps) {
   const [confirmingErase, setConfirmingErase] = useState(false);
   const questionId = useId();
   const focusTargetRef = useRef<FocusTarget>(null);
@@ -123,6 +125,7 @@ export function EntryList({ entries, prices, typedPrices, marketByKey, auctionLo
                   typedPrices={typedPrices}
                   marketByKey={marketByKey}
                   auctionLoaded={auctionLoaded}
+                  professions={professions}
                   onChoose={(recipe, items) => actions.chooseRecipe(entry.id, recipe, items)}
                   onWantedChange={(wanted) => actions.setWanted(entry.id, wanted)}
                   onRemoveReagent={(itemId) => actions.removeReagent(entry.id, itemId)}

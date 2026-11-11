@@ -20,6 +20,8 @@ type RecipeBlockEditorProps = {
   typedPrices: Prices;
   marketByKey: MarketPricesByKey;
   auctionLoaded: boolean;
+  /** Narrows the recipe search; empty means all. */
+  professions: string[];
   onChoose: (recipe: CatalogRecipe, items: Record<string, CatalogItem>) => void;
   onWantedChange: (wanted: number | null) => void;
   onRemoveReagent: (itemId: number) => void;
@@ -37,6 +39,7 @@ export function RecipeBlockEditor({
   typedPrices,
   marketByKey,
   auctionLoaded,
+  professions,
   onChoose,
   onWantedChange,
   onRemoveReagent,
@@ -49,7 +52,7 @@ export function RecipeBlockEditor({
   // The search text is local: a picked recipe stays until another one is picked, and leaving the
   // field puts its name back.
   const [query, setQuery] = useState(recipe?.name ?? '');
-  const matches = useMemo(() => (catalog === null ? [] : searchRecipes(catalog, query, [])), [catalog, query]);
+  const matches = useMemo(() => (catalog === null ? [] : searchRecipes(catalog, query, professions)), [catalog, query, professions]);
   const options: SearchOption[] = matches.map((match) => ({
     key: String(match.id),
     label: match.name,

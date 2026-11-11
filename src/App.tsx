@@ -61,6 +61,7 @@ export function App() {
             marketByKey={marketByKey}
             auctionLoaded={auction.list !== null}
             catalog={catalog}
+            professions={[]}
             actions={actions}
             onReachable={handleReachable}
           />
