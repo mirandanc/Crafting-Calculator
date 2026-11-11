@@ -1,17 +1,22 @@
 /**
  * Downloads one WoW Forever auction house from the Blizzard API, works out a market value per item,
- * and writes auction-prices.json. The GitHub workflow .github/workflows/auction-prices.yml runs it twice
- * a day and stores the file in Cloudflare KV.
+ * estimates sales by comparing with the previous run's snapshot, and writes auction-prices.json and
+ * auction-history.json. The GitHub workflow .github/workflows/auction-prices.yml runs it six times a day,
+ * downloads the history from Cloudflare KV before it and stores both files in KV after it.
+ *
+ * Sales: a listing that vanishes (or a commodity stack that shrinks) before its time-left band could have
+ * run out counts as sold. Cancels count too. Kept for 7 days.
  *
  * Run locally with `npm run fetch:auction-prices` (reads BLIZZARD_CLIENT_ID / BLIZZARD_CLIENT_SECRET
  * from .env), or `npm run auction:houses` to list the Alliance houses.
  *
- * Only type imports from src/ (erased when Node strips types), so Node runs this file directly.
+ * Only type imports from src/ (erased when Node strips types), so Node runs this file directly. For the
+ * same reason everything lives in this one file: Node can't resolve the @scripts/ alias.
  */
-import { rename, writeFile } from 'node:fs/promises';
+import { readFile, rename, writeFile } from 'node:fs/promises';
 import { resolve } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import type { AuctionHouse, AuctionPriceList } from '@/prices/auctionPrices';
+import type { AuctionHouse, AuctionPriceList, ItemSales } from '@/prices/auctionPrices';
 
 /** Blizzard's `time_left`: how long a listing has before it expires. */
 export type TimeLeftBand = 'SHORT' | 'MEDIUM' | 'LONG' | 'VERY_LONG';
@@ -30,8 +35,15 @@ export type BlizzardClientDeps = {
   fetch: typeof globalThis.fetch;
 };
 
+/** An API answer with the time Blizzard last changed its data (`Last-Modified`), null when missing or unreadable. */
+export type BlizzardAnswer = {
+  body: unknown;
+  lastModified: Date | null;
+};
+
 export type BlizzardClient = {
   get(path: string): Promise<unknown>;
+  getAnswer(path: string): Promise<BlizzardAnswer>;
 };
 
 type UnknownRecord = Record<string, unknown>;
@@ -83,6 +95,8 @@ const MIN_ITEMS = 500;
 const REQUEST_TIMEOUT_MS = 60_000;
 /** Relative to the working directory, which is the repo root under npm scripts and the workflow. */
 const OUTPUT_FILE = resolve('auction-prices.json');
+/** The job's memory between runs; the workflow downloads and uploads it (KV key `auction-history`). */
+const HISTORY_FILE = resolve('auction-history.json');
 
 function isRecord(value: unknown): value is UnknownRecord {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
@@ -182,7 +196,7 @@ export type SoldItem = [quantity: number, copper: number];
 
 /** What one run found sold since the previous run. */
 export type SalesEvent = {
-  /** ISO time of the run. */
+  /** ISO time of the snapshot that found the sales. */
   at: string;
   /** Time since the previous snapshot; the covered time this event adds. */
   gapMs: number;
@@ -195,6 +209,12 @@ export type AuctionHistory = {
   at: string;
   listings: Listing[];
   events: SalesEvent[];
+};
+
+/** The sales part of the price list. */
+export type SalesSummary = {
+  sales: Record<string, ItemSales>;
+  salesDays: number;
 };
 
 /** A listing as stored: [id, itemId, unitPrice in whole copper, quantity, index in BANDS]. About 5 MB for 146 000. */
@@ -210,9 +230,10 @@ type StoredHistory = {
  * Units sold per item id between two snapshots `gapMs` apart. A listing counts only when its band's
  * minimum exceeds the gap, so it can't have expired: then a vanished listing sold its whole quantity
  * and a shrunk commodity stack sold the difference, at its unit price. Cancels count too; the API
- * can't tell them apart.
+ * can't tell them apart. Snapshots not apart in time (`gapMs` ≤ 0) show no sales.
  */
 export function detectSales(previous: Listing[], current: Listing[], gapMs: number): Record<string, SoldItem> {
+  if (gapMs <= 0) return {};
   const currentById = new Map<number, Listing>();
   for (const listing of current) currentById.set(listing.id, listing);
   const totals = new Map<string, SoldItem>();
@@ -238,16 +259,18 @@ export function pruneEvents(events: SalesEvent[], now: Date): SalesEvent[] {
 }
 
 /**
- * The history after this run: today's listings become the snapshot, and the sales since the previous
- * snapshot become an event. No event when the gap is not positive or reaches the VERY_LONG minimum:
- * then no listing can count, and the gap would only dilute the sales per day.
+ * The history after this run, whose snapshot was taken at `now`: its listings become the snapshot, and
+ * the sales since the previous snapshot become an event. No event when the gap reaches the VERY_LONG
+ * minimum: then no listing can count, and the gap would only dilute the sales per day. A snapshot that
+ * is not newer (the same data again, or an older answer) keeps the previous one; only old events go.
  */
 export function nextHistory(previous: AuctionHistory | null, current: Listing[], now: Date): AuctionHistory {
   const at = now.toISOString();
   if (previous === null) return { at, listings: current, events: [] };
-  const events = [...previous.events];
   const gapMs = now.getTime() - Date.parse(previous.at);
-  if (gapMs > 0 && gapMs < bandMinimumMs('VERY_LONG')) events.push({ at, gapMs, sold: detectSales(previous.listings, current, gapMs) });
+  if (gapMs <= 0) return { ...previous, events: pruneEvents(previous.events, now) };
+  const events = [...previous.events];
+  if (gapMs < bandMinimumMs('VERY_LONG')) events.push({ at, gapMs, sold: detectSales(previous.listings, current, gapMs) });
   return { at, listings: current, events: pruneEvents(events, now) };
 }
 
@@ -315,6 +338,50 @@ export function parseHistory(text: string): AuctionHistory | null {
   return { at: value.at, listings, events };
 }
 
+/**
+ * Sales per item over the covered time: perDay = units ÷ days covered, price = copper ÷ units. Covered
+ * time is the sum of the gaps, so a missed run is not a day without sales. Null before the first comparison.
+ */
+export function summarizeSales(events: SalesEvent[]): SalesSummary | null {
+  if (events.length === 0) return null;
+  const coveredMs = events.reduce((sum, entry) => sum + entry.gapMs, 0);
+  const salesDays = Math.min(SALES_WINDOW_DAYS, coveredMs / DAY_MS);
+  const totals = new Map<string, SoldItem>();
+  for (const entry of events) {
+    for (const [itemId, [quantity, copper]] of Object.entries(entry.sold)) {
+      const [soFar, spent] = totals.get(itemId) ?? [0, 0];
+      totals.set(itemId, [soFar + quantity, spent + copper]);
+    }
+  }
+  const sales: Record<string, ItemSales> = {};
+  for (const [itemId, [quantity, copper]] of totals) {
+    sales[itemId] = {
+      perDay: Math.round((quantity / salesDays) * 100) / 100,
+      price: Math.min(GOLD_CAP_COPPER, Math.max(1, Math.round(copper / quantity))),
+    };
+  }
+  return { sales, salesDays };
+}
+
+/**
+ * When the snapshot was taken: the older of the answers' Last-Modified times, since the snapshot is only
+ * as new as its oldest part. The run time when any answer lacks one.
+ */
+export function snapshotTime(lastModified: (Date | null)[], runTime: Date): Date {
+  let oldest: Date | null = null;
+  for (const time of lastModified) {
+    if (time === null) return runTime;
+    if (oldest === null || time.getTime() < oldest.getTime()) oldest = time;
+  }
+  return oldest ?? runTime;
+}
+
+function lastModifiedOf(response: Response): Date | null {
+  const header = response.headers.get('Last-Modified');
+  const time = header === null ? Number.NaN : Date.parse(header);
+  return Number.isNaN(time) ? null : new Date(time);
+}
+
 export function createBlizzardClient(clientId: string, clientSecret: string, deps: BlizzardClientDeps): BlizzardClient {
   let token: Promise<string> | null = null;
 
@@ -336,16 +403,22 @@ export function createBlizzardClient(clientId: string, clientSecret: string, dep
     return body.access_token;
   };
 
+  const getAnswer = async (path: string): Promise<BlizzardAnswer> => {
+    token ??= requestToken();
+    const response = await deps.fetch(`${API}${path}?${QUERY}`, {
+      headers: { Authorization: `Bearer ${await token}` },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+    });
+    if (!response.ok) throw new Error(`${path} answered ${response.status}`);
+    const body: unknown = await response.json();
+    return { body, lastModified: lastModifiedOf(response) };
+  };
+
   return {
     async get(path) {
-      token ??= requestToken();
-      const response = await deps.fetch(`${API}${path}?${QUERY}`, {
-        headers: { Authorization: `Bearer ${await token}` },
-        signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS),
-      });
-      if (!response.ok) throw new Error(`${path} answered ${response.status}`);
-      return response.json();
+      return (await getAnswer(path)).body;
     },
+    getAnswer,
   };
 }
 
@@ -359,8 +432,13 @@ export function totalQuantities(listings: Listing[]): Record<string, number> {
   return quantities;
 }
 
-export function buildPriceList(listings: Listing[], house: AuctionHouse, now: Date): AuctionPriceList {
-  return { updatedAt: now.toISOString(), house, prices: marketValues(listings), quantities: totalQuantities(listings) };
+export function buildPriceList(listings: Listing[], house: AuctionHouse, now: Date, sales: SalesSummary | null): AuctionPriceList {
+  const list: AuctionPriceList = { updatedAt: now.toISOString(), house, prices: marketValues(listings), quantities: totalQuantities(listings) };
+  if (sales !== null) {
+    list.sales = sales.sales;
+    list.salesDays = sales.salesDays;
+  }
+  return list;
 }
 
 export function checkPriceList(list: AuctionPriceList): void {
@@ -377,6 +455,26 @@ async function listHouses(client: BlizzardClient): Promise<void> {
   }
 }
 
+/** The previous run's history, or null on the first run or when the file is unreadable. */
+async function readHistory(): Promise<AuctionHistory | null> {
+  let text: string;
+  try {
+    text = await readFile(HISTORY_FILE, 'utf8');
+  } catch {
+    return null; // no file: the first run, or the workflow could not download it
+  }
+  const history = parseHistory(text);
+  if (history === null) console.warn('auction-history.json is unreadable; starting a new sales history');
+  return history;
+}
+
+/** Write then rename, so a crash never leaves a half-written file for the KV upload step. */
+async function writeAtomically(file: string, content: string): Promise<void> {
+  const tmpFile = `${file}.tmp`;
+  await writeFile(tmpFile, content);
+  await rename(tmpFile, file);
+}
+
 async function main(): Promise<void> {
   const clientId = process.env.BLIZZARD_CLIENT_ID?.trim() ?? '';
   const clientSecret = process.env.BLIZZARD_CLIENT_SECRET?.trim() ?? '';
@@ -391,17 +489,23 @@ async function main(): Promise<void> {
   }
 
   const base = `/data/wow/ruleset/${HOUSE.ruleset}/auctions/${HOUSE.id}`;
-  const house = await client.get(base);
-  const commodities = await client.get(`${base}/commodities`);
-  const listings = unitListings(house, commodities);
-  const list = buildPriceList(listings, HOUSE, new Date());
+  const house = await client.getAnswer(base);
+  const commodities = await client.getAnswer(`${base}/commodities`);
+  const listings = unitListings(house.body, commodities.body);
+  const now = new Date();
+  // The snapshot is dated by Blizzard's data, not by this run: the answers can lag the run by an hour.
+  const takenAt = snapshotTime([house.lastModified, commodities.lastModified], now);
+  const history = nextHistory(await readHistory(), listings, takenAt);
+  const list = buildPriceList(listings, HOUSE, now, summarizeSales(history.events));
   checkPriceList(list);
 
-  // Write then rename, so a crash never leaves a half-written file for the KV upload step.
-  const tmpFile = `${OUTPUT_FILE}.tmp`;
-  await writeFile(tmpFile, JSON.stringify(list));
-  await rename(tmpFile, OUTPUT_FILE);
-  console.log(`Priced ${Object.keys(list.prices).length} items from ${listings.length} listings in house ${HOUSE.id}`);
+  // A broken answer stops above, so neither file replaces good data.
+  await writeAtomically(HISTORY_FILE, serializeHistory(history));
+  await writeAtomically(OUTPUT_FILE, JSON.stringify(list));
+  const salesText = list.salesDays === undefined ? 'no sales yet' : `sales over ${list.salesDays.toFixed(2)} days`;
+  console.log(
+    `Priced ${Object.keys(list.prices).length} items from ${listings.length} listings in house ${HOUSE.id} (data of ${takenAt.toISOString()}); ${salesText}`,
+  );
 }
 
 const runAsScript = process.argv[1] !== undefined && resolve(process.argv[1]) === fileURLToPath(import.meta.url);

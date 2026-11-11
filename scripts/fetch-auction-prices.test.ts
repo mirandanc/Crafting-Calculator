@@ -11,12 +11,15 @@ import {
   parseHistory,
   pruneEvents,
   serializeHistory,
+  snapshotTime,
+  summarizeSales,
   totalQuantities,
   unitListings,
   type AuctionHistory,
   type BlizzardClientDeps,
   type Listing,
   type SalesEvent,
+  type SalesSummary,
   type SoldItem,
   type TimeLeftBand,
 } from '@scripts/fetch-auction-prices';
@@ -172,13 +175,19 @@ const HOUSE: AuctionHouse = { ruleset: 1, id: 110, name: 'Alliance Auction House
 
 describe('buildPriceList', () => {
   it('stamps the time and house and keeps one price per item', () => {
-    const list = buildPriceList([listing(2840, 113, 20)], HOUSE, new Date('2026-11-10T16:00:00Z'));
+    const list = buildPriceList([listing(2840, 113, 20)], HOUSE, new Date('2026-11-10T16:00:00Z'), null);
     expect(list).toEqual({
       updatedAt: '2026-11-10T16:00:00.000Z',
       house: { ruleset: 1, id: 110, name: 'Alliance Auction House' },
       prices: { '2840': 113 },
       quantities: { '2840': 20 },
     });
+  });
+
+  it('adds the estimated sales once there are some', () => {
+    const sales: SalesSummary = { sales: { '2840': { perDay: 64, price: 114 } }, salesDays: 0.28125 };
+    const list = buildPriceList([listing(2840, 113, 20)], HOUSE, new Date('2026-11-10T16:00:00Z'), sales);
+    expect(list).toMatchObject({ sales: { '2840': { perDay: 64, price: 114 } }, salesDays: 0.28125 });
   });
 });
 
@@ -232,6 +241,19 @@ describe('createBlizzardClient', () => {
     await expect(client.get('/x')).rejects.toThrow('no access token');
   });
 
+  it('gives the Last-Modified time of an answer with its body', async () => {
+    const d = deps([
+      Response.json({ access_token: 'tok' }),
+      Response.json({ auctions: [] }, { headers: { 'Last-Modified': 'Wed, 11 Nov 2026 16:22:37 GMT' } }),
+      Response.json({ auctions: [] }),
+      Response.json({ auctions: [] }, { headers: { 'Last-Modified': 'not a date' } }),
+    ]);
+    const client = createBlizzardClient('id', 'secret', d);
+    await expect(client.getAnswer('/a')).resolves.toEqual({ body: { auctions: [] }, lastModified: new Date('2026-11-11T16:22:37.000Z') });
+    await expect(client.getAnswer('/b')).resolves.toEqual({ body: { auctions: [] }, lastModified: null });
+    await expect(client.getAnswer('/c')).resolves.toEqual({ body: { auctions: [] }, lastModified: null });
+  });
+
   it('fails clearly when the API answers an error', async () => {
     const d = deps([Response.json({ access_token: 'secret-token' }), new Response('', { status: 503 })]);
     const error = await createBlizzardClient('id', 'the-secret', d).get('/x').catch((reason: unknown) => reason);
@@ -272,6 +294,12 @@ describe('detectSales', () => {
 
   it('ignores a listing that grew', () => {
     expect(detectSales([listing(10, 100, 5, 1, 'LONG')], [listing(10, 100, 7, 1, 'LONG')], 90 * MINUTES)).toEqual({});
+  });
+
+  it('finds no sales when the snapshots are not apart in time', () => {
+    const previous = [listing(10, 100, 5, 1, 'LONG')];
+    expect(detectSales(previous, [], 0)).toEqual({});
+    expect(detectSales(previous, [], -30 * MINUTES)).toEqual({});
   });
 
   it('rounds the copper per item', () => {
@@ -317,12 +345,71 @@ describe('nextHistory', () => {
     });
   });
 
-  it('records no event when no band could outlast the gap, or the previous snapshot is not older', () => {
+  it('records no event but takes the new snapshot when no band could outlast the gap', () => {
     const kept = event('2026-11-11T02:00:00.000Z', 5.25 * HOURS);
-    const at = (previousAt: string) => nextHistory({ at: previousAt, listings: [], events: [kept] }, current, NOW).events;
-    expect(at('2026-11-11T04:00:00.000Z')).toEqual([kept]); // 8 h: even VERY_LONG may have expired
-    expect(at('2026-11-11T12:00:00.000Z')).toEqual([kept]);
-    expect(at('2026-11-11T13:00:00.000Z')).toEqual([kept]);
+    const previous: AuctionHistory = { at: '2026-11-11T04:00:00.000Z', listings: [listing(10, 100, 5, 1, 'LONG')], events: [kept] };
+    // 8 h: even VERY_LONG may have expired.
+    expect(nextHistory(previous, current, NOW)).toEqual({ at: '2026-11-11T12:00:00.000Z', listings: current, events: [kept] });
+  });
+
+  it('keeps the previous snapshot when the new one is not newer, only pruning its events', () => {
+    const old = event('2026-11-01T12:00:00.000Z', 5.25 * HOURS);
+    const kept = event('2026-11-11T02:00:00.000Z', 5.25 * HOURS);
+    const previousListings = [listing(10, 100, 5, 1, 'LONG')];
+    // The same answer again, then an older one (a stale answer or clock skew).
+    for (const previousAt of ['2026-11-11T12:00:00.000Z', '2026-11-11T13:00:00.000Z']) {
+      const previous: AuctionHistory = { at: previousAt, listings: previousListings, events: [old, kept] };
+      expect(nextHistory(previous, current, NOW)).toEqual({ at: previousAt, listings: previousListings, events: [kept] });
+    }
+  });
+});
+
+describe('summarizeSales', () => {
+  it('gives no sales before the first comparison', () => {
+    expect(summarizeSales([])).toBeNull();
+  });
+
+  it('divides what sold by the days covered and averages the price paid', () => {
+    // Covered: 1.5 h + 5.25 h = 6.75 h = 0.28125 days.
+    // Item 10: 18 sold → 18 ÷ 0.28125 = 64 a day; 2060c ÷ 18 = 114.4 → 114c.
+    // Item 20: 2 sold → 7.11 a day; 50c.
+    const events = [
+      event('2026-11-11T10:30:00.000Z', 1.5 * HOURS, { '10': [13, 1460] }),
+      event('2026-11-11T15:45:00.000Z', 5.25 * HOURS, { '10': [5, 600], '20': [2, 100] }),
+    ];
+    expect(summarizeSales(events)).toEqual({
+      sales: { '10': { perDay: 64, price: 114 }, '20': { perDay: 7.11, price: 50 } },
+      salesDays: 0.28125,
+    });
+  });
+
+  it('keeps a comparison that found no sales as covered time', () => {
+    expect(summarizeSales([event('2026-11-11T10:30:00.000Z', 6 * HOURS)])).toEqual({ sales: {}, salesDays: 0.25 });
+  });
+
+  it('covers at most 7 days', () => {
+    const events = [event('2026-11-07T12:00:00.000Z', 96 * HOURS, { '10': [40, 4000] }), event('2026-11-11T12:00:00.000Z', 96 * HOURS, { '10': [30, 3000] })];
+    expect(summarizeSales(events)).toEqual({ sales: { '10': { perDay: 10, price: 100 } }, salesDays: 7 });
+  });
+
+  it('never prices a sale below 1 copper', () => {
+    expect(summarizeSales([event('2026-11-11T12:00:00.000Z', 24 * HOURS, { '10': [200, 0] })])?.sales).toEqual({ '10': { perDay: 200, price: 1 } });
+  });
+});
+
+describe('snapshotTime', () => {
+  const runTime = new Date('2026-11-11T17:02:33.000Z');
+  const house = new Date('2026-11-11T16:22:37.000Z');
+  const commodities = new Date('2026-11-11T16:40:00.000Z');
+
+  it("uses the older of the answers' Last-Modified times", () => {
+    expect(snapshotTime([house, commodities], runTime)).toEqual(house);
+    expect(snapshotTime([commodities, house], runTime)).toEqual(house);
+  });
+
+  it('falls back to the run time when an answer has no Last-Modified time', () => {
+    expect(snapshotTime([house, null], runTime)).toEqual(runTime);
+    expect(snapshotTime([null, commodities], runTime)).toEqual(runTime);
   });
 });
 
