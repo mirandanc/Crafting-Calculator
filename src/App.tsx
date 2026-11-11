@@ -118,6 +118,8 @@ export function App() {
               minProfit={preferences.minProfit}
               onMinProfitChange={preferenceActions.setMinProfit}
               onMinProfitBlur={preferenceActions.normalizeMinProfit}
+              sort={preferences.sort}
+              onSortChange={preferenceActions.setSort}
               onAdd={addFromAnalysis}
             />
           )}
