@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { formatMargin, rankRecipes, type RankingMarket } from '@/market/ranking';
 import type { ItemPrices } from '@/prices/marketPrices';
 import type { RecipeCatalog } from '@/recipes/catalog';
-import { TEST_CATALOG } from '@/test/catalogFixture';
+import { TEST_CATALOG, testRecipe } from '@/test/catalogFixture';
 
 const without = (prices: ItemPrices, itemId: string): ItemPrices =>
   Object.fromEntries(Object.entries(prices).filter(([id]) => id !== itemId));
@@ -78,6 +78,49 @@ describe('rankRecipes', () => {
       ],
     };
     expect(names(catalog, MARKET)).toEqual(['A Vest', 'B Vest']);
+  });
+
+  it('floors the revenue when the auction cut leaves a fraction', () => {
+    // 901 × 2 × 0.95 = 1711.9, not a whole number.
+    const market: RankingMarket = { ...MARKET, auction: { ...MARKET.auction, '2841': 901 } };
+    const ranked = rankRecipes(TEST_CATALOG, market, { professions: [], minProfit: 0 });
+    const smelt = ranked.find((entry) => entry.recipe.name === 'Smelt Bronze');
+    expect(smelt).toMatchObject({ revenue: 1711, cost: 363, profit: 1348 });
+  });
+
+  it('breaks a margin tie by profit when one recipe is a scaled-up copy of another', () => {
+    const bigVestItemId = 50001;
+    const catalog: RecipeCatalog = {
+      ...TEST_CATALOG,
+      recipes: [
+        testRecipe('Rough Copper Vest'),
+        {
+          ...testRecipe('Rough Copper Vest'),
+          id: 99999,
+          name: 'Big Vest',
+          reagents: [{ itemId: 2840, count: 8 }],
+          makes: { itemId: bigVestItemId, name: 'Big Vest', count: 1 },
+        },
+      ],
+    };
+    const market: RankingMarket = {
+      ...MARKET,
+      auction: { ...MARKET.auction, [String(bigVestItemId)]: 4000 },
+      quantities: { ...MARKET.quantities, [String(bigVestItemId)]: 10 },
+    };
+    // Same margin as Rough Copper Vest (costs and sells exactly double), but twice the profit.
+    expect(names(catalog, market)).toEqual(['Big Vest', 'Rough Copper Vest']);
+  });
+
+  it('excludes a recipe that makes nothing, even when its reagent is priced', () => {
+    expect(names(TEST_CATALOG, { ...MARKET, auction: { ...MARKET.auction, '247786': 50 } })).not.toContain(
+      'Enchant Bracer - Inferior Stamina',
+    );
+  });
+
+  it('excludes a recipe whose reagents cost nothing', () => {
+    const market: RankingMarket = { ...MARKET, auction: { ...MARKET.auction, '2840': 0, '3576': 0 } };
+    expect(names(TEST_CATALOG, market)).not.toContain('Smelt Bronze');
   });
 });
 
