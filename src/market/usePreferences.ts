@@ -1,10 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
 import { coinsEqual, normalizeCoins, type Coins } from '@/money/money';
 import type { RankingSort } from '@/market/ranking';
-import { loadPreferences, savePreferences, type BookTab, type Preferences } from '@/market/preferences';
+import { loadPreferences, savePreferences, type Preferences } from '@/market/preferences';
 
 export type PreferenceActions = {
-  setTab: (tab: BookTab) => void;
   setProfessions: (professions: string[]) => void;
   /** Keeps the coins as typed; normalizeMinProfit rolls them up when the field loses focus. */
   setMinProfit: (minProfit: Coins) => void;
@@ -26,7 +25,6 @@ export function usePreferences(): PreferencesState {
 
   const actions = useMemo<PreferenceActions>(
     () => ({
-      setTab: (tab) => setPreferences((current) => (current.tab === tab ? current : { ...current, tab })),
       setProfessions: (professions) => setPreferences((current) => ({ ...current, professions })),
       setMinProfit: (minProfit) => setPreferences((current) => ({ ...current, minProfit })),
       normalizeMinProfit: () =>

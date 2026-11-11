@@ -81,3 +81,10 @@
   outline: 2px solid var(--color-focus);
   outline-offset: 3px;
 }
+
+/* Keeps the names lined up for a profession without an icon; the size of a small ItemIcon. */
+.iconGap {
+  flex: none;
+  width: 22px;
+  height: 22px;
+}
