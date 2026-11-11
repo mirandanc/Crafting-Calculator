@@ -44,18 +44,19 @@ describe('RankingCard', () => {
     expect(onAdd).toHaveBeenCalledWith(SMELT.recipe);
   });
 
-  it('shows the sales after the profession, and the profit per day, when sales are known', () => {
+  it('shows the sales after the profession, but not the profit per day, when sales are known', () => {
     render(<RankingCard ranked={{ ...SMELT, salesPerDay: 14, profitPerDay: 42_000 }} onAdd={vi.fn()} />);
     const card = screen.getByRole('button', { name: /Add Smelt Bronze to the market list/ });
     expect(screen.getByText('· 14 sold in a day')).toBeInTheDocument();
     expect(card).toHaveAccessibleDescription(
-      'Mining, 14 sold in a day, 446% margin. Profit 13s 97c Sells for 17s 10c Costs 3s 13c ≈ 4g 20s/day Copper Bar ×1 1s 13c Tin Bar ×1 2s Vendor',
+      'Mining, 14 sold in a day, 446% margin. Profit 13s 97c Sells for 17s 10c Costs 3s 13c Copper Bar ×1 1s 13c Tin Bar ×1 2s Vendor',
     );
+    expect(screen.queryByText(/\/day/)).toBeNull();
   });
 
   it('rounds sales per day down to a whole number', () => {
     render(<RankingCard ranked={{ ...SMELT, salesPerDay: 6.43, profitPerDay: 8_982 }} onAdd={vi.fn()} />);
-    expect(screen.getByRole('button', { name: /Add Smelt Bronze/ })).toHaveAccessibleDescription(/^Mining, 6 sold in a day, .* ≈ 89s 82c\/day /);
+    expect(screen.getByRole('button', { name: /Add Smelt Bronze/ })).toHaveAccessibleDescription(/^Mining, 6 sold in a day, /);
   });
 
   it('leaves the sales out while sales are unknown', () => {
